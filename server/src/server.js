@@ -15,7 +15,7 @@ async function startServer() {
   console.log(`Porta configurada: ${config.PORT}`);
   console.log(`Banco: ${config.DATABASE_URL ? 'PostgreSQL Ativo' : 'In-Memory Store (Dev/Test)'}`);
 
-  // Produção executa migrations como pre-deploy command; dev mantém conveniência local.
+  // Render Free: o startCommand executa migrate antes de server:start; não duplicar em produção.
   if (!config.isProduction) await runMigrations();
   await db.query('SELECT 1;'); // Fail startup instead of listening with an unreachable production DB.
 

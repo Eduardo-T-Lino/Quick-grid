@@ -2,9 +2,9 @@ services:
   - type: web
     name: quick-grid-telemetry-api
     runtime: node
+    plan: free
     buildCommand: npm ci
-    preDeployCommand: npm run migrate
-    startCommand: npm run server:start
+    startCommand: npm run migrate && npm run server:start
     healthCheckPath: /ready
     envVars:
       - key: NODE_ENV
@@ -19,5 +19,6 @@ services:
         sync: false
 databases:
   - name: quick-grid-telemetry-db
+    plan: free
     databaseName: quick_grid_telemetry
     user: quick_grid
