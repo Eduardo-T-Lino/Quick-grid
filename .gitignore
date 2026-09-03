@@ -1,0 +1,48 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules/
+dist/
+dist-ssr/
+coverage/
+artifacts/
+playwright-report/
+test-results/
+*.local
+.env
+.env.*
+!.env.example
+
+# Machine-local credentials and provider links (never publish)
+.npmrc
+.netrc
+credentials.json
+credentials.local.*
+service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+.vercel/
+.render/
+
+# Local recordings and raw telemetry captures; retain on disk, not in source control
+/*.mp4
+/quick-grid-telemetry-*.jsonl
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,0 +1,29 @@
+{
+  "name": "quick-grid",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "node server/src/server.js",
+    "server:start": "node server/src/server.js",
+    "server:dev": "node server/src/server.js",
+    "start": "node server/src/server.js",
+    "test:ml": "node scripts/test_ml_telemetry.js",
+    "test:api": "node scripts/test_backend_api.js",
+    "migrate": "node server/src/db/migrator.js",
+    "test:ml22": "node scripts/test_ml22.js",
+    "test:ml22:completion": "node scripts/test_ml22_completion.js",
+    "test:ml22:gate": "node scripts/run_ml22_regression.js",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.2.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
+  }
+}

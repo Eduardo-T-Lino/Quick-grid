@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GT3 World Racing - Circuitos Reais</title>
+  <meta name="description" content="Simulador de corridas GT3 com circuitos reais, dinâmica de pneus, clima e áreas de escape.">
+</head>
+
+<body>
+
+  <div id="menu">
+    <h1>🏎️ GT3 World Racing</h1>
+
+    <div class="form-group">
+      <label for="trackSelect">Circuito (24 Pistas):</label>
+      <select id="trackSelect">
+        <!-- Populado dinamicamente via JS a partir de f1Tracks.js -->
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="trackCondition">Condição da Pista:</label>
+      <select id="trackCondition">
+        <option value="dry" selected>☀️ Seca — slicks na temperatura ideal</option>
+        <option value="wet">🌧️ Molhada — pouca aderência e frenagem longa</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="gameMode">Modo de Jogo:</label>
+      <select id="gameMode" onchange="toggleModeUI()">
+        <option value="race">🏁 Corrida vs IA Tática (Adestrável)</option>
+        <option value="ghost">👻 Modo Fantasma (Contratempo / Telemetria)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="transMode">Transmissão:</label>
+      <select id="transMode">
+        <option value="auto">⚡ Automática Suave</option>
+        <option value="manual" selected>🕹️ Manual (Setas ↑ / ↓)</option>
+      </select>
+    </div>
+
+    <div id="botOptionsGroup">
+      <div class="form-group">
+        <label for="botCount">Pilotos Adversários:</label>
+        <select id="botCount">
+          <option value="1">1 Piloto</option>
+          <option value="3">3 Pilotos</option>
+          <option value="19" selected>19 Pilotos GT3</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="botDifficulty">Nível da IA:</label>
+        <select id="botDifficulty">
+          <option value="easy">🟢 Principiante</option>
+          <option value="medium">🟡 Veterano</option>
+          <option value="pro" selected>🔴 Piloto Profissional / Pro GT3</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="lapCount">Número de Voltas:</label>
+      <select id="lapCount">
+        <option value="1">1 Volta (Sprint Rápido)</option>
+        <option value="2">2 Voltas</option>
+        <option value="3" selected>3 Voltas</option>
+        <option value="40">40 Voltas (Mini-GP)</option>
+      </select>
+    </div>
+
+    <div class="controls-grid">
+      <div><b>W:</b> Acelerar</div>
+      <div><b>S:</b> Freio / Ré</div>
+      <div><b>A / D:</b> Volante</div>
+      <div><b>Setas ↑ / ↓:</b> Marchas</div>
+    </div>
+
+    <div class="telemetry-consent" id="telemetry-consent">
+      <p>Permitir envio anônimo de dados de pilotagem para ajudar a melhorar os bots.</p>
+      <div class="consent-actions">
+        <button type="button" id="consent-allow">Permitir</button>
+        <button type="button" id="consent-deny">Não permitir</button>
+      </div>
+      <small id="consent-status">Telemetria online desativada.</small>
+    </div>
+
+    <button class="btn-main" onclick="startGame()">LARGAR / INICIAR CORRIDA</button>
+    <button class="btn-danger" onclick="clearRecords()">🗑️ Limpar Recordes</button>
+  </div>
+
+  <div id="win-screen">
+    <h1>🏆 FIM DE GRANDE PRÊMIO</h1>
+    <div id="podium-list"></div>
+    <button class="btn-main" onclick="backToMenu()">VOLTAR AO PADDOCK</button>
+  </div>
+
+  <div id="shift-alert"></div>
+  <div id="physics-alert"></div>
+
+  <div id="hud-top">
+    <div class="top-badge" id="top-pos">POS: 1º</div>
+    <div class="top-badge" id="top-lap">VOLTA: 1/3</div>
+    <div class="top-badge" id="top-time" style="color:#00ffcc">00:00.00</div>
+  </div>
+
+  <div id="hud-leaderboard"></div>
+
+  <div id="hud-bottom-right">
+    <div style="font-size:0.7em; color:#aaa; font-weight:bold" id="player-name">PILOTO</div>
+    <div class="speed-display"><span id="speed-val">0</span> <span style="font-size:0.45em; color:#888">KM/H</span>
+    </div>
+    <div class="gear-display">
+      <span class="gear-val" id="gear-val">1ª MARCHA</span>
+      <span class="mode-tag" id="mode-tag">MANUAL</span>
+    </div>
+    <div class="rpm-container">
+      <div class="rpm-bar" id="rpm-bar"></div>
+    </div>
+    <div class="shift-text" id="shift-text">1000 RPM</div>
+    <div class="telemetry-row"><span id="tyre-status">PNEUS 75°C</span><span id="assist-status">TC / ABS</span></div>
+  </div>
+
+  <div id="timer-box">⏱️ TEMPO RESTANTE: 45s</div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

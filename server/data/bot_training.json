@@ -1,0 +1,36 @@
+{
+  "totalTreatsAwarded": 2100,
+  "totalPunishments": 0,
+  "bots": {
+    "A. Senna": {
+      "treats": 420,
+      "discipline": 2.5,
+      "skill": 1.04,
+      "cleanLaps": 8
+    },
+    "M. Verstappen": {
+      "treats": 435,
+      "discipline": 2.0500000000000003,
+      "skill": 1.04,
+      "cleanLaps": 8
+    },
+    "L. Hamilton": {
+      "treats": 406,
+      "discipline": 2.5,
+      "skill": 1.04,
+      "cleanLaps": 8
+    },
+    "C. Leclerc": {
+      "treats": 417,
+      "discipline": 2.5,
+      "skill": 1.04,
+      "cleanLaps": 8
+    },
+    "F. Alonso": {
+      "treats": 422,
+      "discipline": 2.4000000000000004,
+      "skill": 1.04,
+      "cleanLaps": 8
+    }
+  }
+}
