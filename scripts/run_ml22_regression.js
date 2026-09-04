@@ -33,7 +33,8 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'ut
 const commands = [
   'npm run test:ml', 'npm run test:api', 'node scripts/test_telemetry_uploader.js',
   'node scripts/test_uploader_integration.js', 'node scripts/test_backend_concurrency.js',
-  'npm run test:ml22', 'npm run test:ml22:completion', 'npm run test:render-free', 'npm run build'
+  'npm run test:ml22', 'npm run test:ml22:completion', 'npm run test:render-free',
+  'npm run test:db-tls', 'npm run build'
 ];
 if (manifest.scripts.lint) commands.push('npm run lint');
 const git = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', cwd: root });

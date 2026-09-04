@@ -211,12 +211,12 @@ export function getPool() {
       throw new Error(errMsg);
     }
     console.log('[DB] PostgreSQL production pool initializing');
+    // DATABASE_URL determina TLS (ex.: sslmode=require); não forçar SSL na URL interna.
     poolInstance = new Pool({
       connectionString: url,
       max: config.DB_POOL_MAX,
       idleTimeoutMillis: config.DB_IDLE_TIMEOUT_MS,
-      connectionTimeoutMillis: config.DB_CONNECTION_TIMEOUT_MS,
-      ssl: { rejectUnauthorized: true }
+      connectionTimeoutMillis: config.DB_CONNECTION_TIMEOUT_MS
     });
   } else {
     if (usePostgres) {
