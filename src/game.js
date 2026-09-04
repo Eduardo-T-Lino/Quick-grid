@@ -9,6 +9,10 @@ import { drawMinimap } from './minimap.js';
 import { fetchTrackRecords, saveTrackRecords, fetchBotTrainingData, saveBotTrainingData, fetchBotOffsetMemory, saveBotOffsetMemory } from './api.js';
 import { drawBotDebugOverlay } from './ai.js';
 import { mlTelemetry, onlineUploader, telemetryPerformance } from './ml/telemetry/index.js';
+import { getRenderBounds, withinRenderBounds } from './renderGeometry.js';
+import { raceStart, renderStartLights } from './raceStart.js';
+import { getCarSprite } from './carAppearance.js';
+import { renderPoses } from './renderPose.js';
 
 // ========== SHARED GAME STATE ==========
 export const state = {
@@ -25,6 +29,7 @@ export const state = {
   selectedTrackData: F1_TRACKS.find(t => t.id === 21) || F1_TRACKS[0],
   botDifficulty: 'pro',
   isRunning: false,
+  racePhase: 'idle',
   raceFinished: false,
   gameMode: 'race',
   transmissionMode: 'manual',
@@ -220,101 +225,141 @@ export function clearRecords() {
 }
 
 export function backToMenu() {
+  cancelAnimationFrame(animationFrameId);
+  animationFrameId = null;
+  renderPoses.reset();
+  raceStart.reset();
+  renderStartLights();
+  state.racePhase = 'idle';
   if (mlTelemetry.enabled) mlTelemetry.stop();
   if (state.timerInterval) clearInterval(state.timerInterval);
   document.getElementById('timer-box').style.display = 'none';
   physicsAccumulator = 0;
   lastFrameTime = performance.now();
   document.getElementById('shift-alert').style.display = 'none';
+  document.getElementById('physics-alert').style.display = 'none';
   document.getElementById('win-screen').style.display = 'none';
   document.getElementById('menu').style.display = 'block';
   state.isRunning = false;
 }
 
 export async function startGame() {
-  state.gameMode = document.getElementById('gameMode').value;
-  state.transmissionMode = document.getElementById('transMode').value;
-  state.trackCondition = document.getElementById('trackCondition').value;
-  state.selectedTrack = parseInt(document.getElementById('trackSelect').value);
-  state.totalLaps = parseInt(document.getElementById('lapCount').value);
-  state.botDifficulty = document.getElementById('botDifficulty').value;
+  if (state.isRunning || state.racePhase === 'loading') return;
+  state.racePhase = 'loading';
+  try {
+    state.gameMode = document.getElementById('gameMode').value;
+    state.transmissionMode = document.getElementById('transMode').value;
+    state.trackCondition = document.getElementById('trackCondition').value;
+    state.selectedTrack = parseInt(document.getElementById('trackSelect').value);
+    state.totalLaps = parseInt(document.getElementById('lapCount').value);
+    state.botDifficulty = document.getElementById('botDifficulty').value;
 
-  if (onlineUploader.consentEnabled) {
-    mlTelemetry.start({ trackId: state.selectedTrack, scope: 'PLAYER_ONLY', onlineOnly: true });
-  }
+    resizeCanvas();
+    generateTrackPath(state.selectedTrack);
+    await loadRecords(state.selectedTrack, state.totalLaps);
 
-  resizeCanvas();
-  generateTrackPath(state.selectedTrack);
-  await loadRecords(state.selectedTrack, state.totalLaps);
+    // Carregar histórico de treino e offsetMemory dos bots
+    const botTrainingHistory = await fetchBotTrainingData();
+    const botOffsetMemory = await fetchBotOffsetMemory();
 
-  // Carregar histórico de treino e offsetMemory dos bots
-  const botTrainingHistory = await fetchBotTrainingData();
-  const botOffsetMemory = await fetchBotOffsetMemory();
+    state.cars = []; state.particles = []; state.skidMarks = []; state.floatingNotices = [];
+    renderPoses.reset();
+    state.finishedCarsOrder = [];
+    state.raceFinished = false;
+    state.firstFinishedCar = false;
 
-  state.cars = []; state.particles = []; state.skidMarks = []; state.floatingNotices = [];
-  state.finishedCarsOrder = [];
-  state.raceFinished = false;
-  state.firstFinishedCar = false;
+    state.currentLapPath = []; state.currentRacePath = [];
+    state.ghostLapFrameIndex = 0; state.ghostRaceFrameIndex = 0;
 
-  state.currentLapPath = []; state.currentRacePath = [];
-  state.ghostLapFrameIndex = 0; state.ghostRaceFrameIndex = 0;
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    document.getElementById('timer-box').style.display = 'none';
 
-  if (state.timerInterval) clearInterval(state.timerInterval);
-  document.getElementById('timer-box').style.display = 'none';
+    const numBots = (state.gameMode === 'race') ? parseInt(document.getElementById('botCount').value) : 0;
 
-  const numBots = (state.gameMode === 'race') ? parseInt(document.getElementById('botCount').value) : 0;
+    // Carro do Jogador (P1): posicionado no ÚLTIMO slot do grid (index = numBots)
+    state.cars.push(new Car('#ff2222', 'Você (P1)', false, numBots, state.transmissionMode === 'auto'));
 
-  // Carro do Jogador (P1): posicionado no ÚLTIMO slot do grid (index = numBots)
-  state.cars.push(new Car('#ff2222', 'Você (P1)', false, numBots, state.transmissionMode === 'auto'));
+    // Bots / Adversários: posicionados nos slots 0 até numBots - 1 (à frente do jogador)
+    if (state.gameMode === 'race') {
+      for (let i = 0; i < numBots; i++) {
+        let bCfg = BOT_CONFIGS[i % BOT_CONFIGS.length];
+        let botCar = new Car(bCfg.color, bCfg.name, true, i, true);
 
-  // Bots / Adversários: posicionados nos slots 0 até numBots - 1 (à frente do jogador)
-  if (state.gameMode === 'race') {
-    for (let i = 0; i < numBots; i++) {
-      let bCfg = BOT_CONFIGS[i % BOT_CONFIGS.length];
-      let botCar = new Car(bCfg.color, bCfg.name, true, i, true);
+        // Injetar memória de treino do backend
+        if (botTrainingHistory && botTrainingHistory.bots && botTrainingHistory.bots[bCfg.name]) {
+          const saved = botTrainingHistory.bots[bCfg.name];
+          botCar.petTreats = saved.treats || 0;
+          botCar.discipline = saved.discipline || 1.0;
+          botCar.botSkill = Math.max(botCar.botSkill, saved.skill || botCar.botSkill);
+        }
 
-      // Injetar memória de treino do backend
-      if (botTrainingHistory && botTrainingHistory.bots && botTrainingHistory.bots[bCfg.name]) {
-        const saved = botTrainingHistory.bots[bCfg.name];
-        botCar.petTreats = saved.treats || 0;
-        botCar.discipline = saved.discipline || 1.0;
-        botCar.botSkill = Math.max(botCar.botSkill, saved.skill || botCar.botSkill);
+        // Injetar cérebro de Machine Learning salvo (RL persistente entre corridas)
+        if (botOffsetMemory && botOffsetMemory[bCfg.name] && botCar.brain) {
+          botCar.brain.importModel(botOffsetMemory[bCfg.name]);
+        }
+
+        state.cars.push(botCar);
       }
-
-      // Injetar cérebro de Machine Learning salvo (RL persistente entre corridas)
-      if (botOffsetMemory && botOffsetMemory[bCfg.name] && botCar.brain) {
-        botCar.brain.importModel(botOffsetMemory[bCfg.name]);
-      }
-
-      state.cars.push(botCar);
     }
-  }
 
-  // Centralizar câmera imediatamente no jogador (P1)
-  if (state.cars.length > 0) {
-    mainCamera.x = state.cars[0].x;
-    mainCamera.y = state.cars[0].y;
-  }
+    // Centralizar câmera imediatamente no jogador (P1)
+    if (state.cars.length > 0) {
+      mainCamera.x = state.cars[0].x;
+      mainCamera.y = state.cars[0].y;
+    }
 
-  document.getElementById('menu').style.display = 'none';
-  state.isRunning = true;
-  gameLoop();
+    document.getElementById('menu').style.display = 'none';
+    // Build body artwork while preparing the grid, not at the first racing frame.
+    state.cars.forEach(getCarSprite);
+    cancelAnimationFrame(animationFrameId);
+    physicsAccumulator = 0;
+    lastFrameTime = performance.now();
+    raceStart.begin(lastFrameTime);
+    state.racePhase = 'countdown';
+    state.isRunning = true;
+    gameLoop();
+  } catch (error) {
+    backToMenu();
+    throw error;
+  }
 }
 
 // ========== GAME LOOP ==========
 let lastFrameTime = performance.now();
 let physicsAccumulator = 0;
+let animationFrameId = null;
 const PHYSICS_STEP_MS = 1000 / 60;
 
 function gameLoop(now = performance.now()) {
+  animationFrameId = null;
   if (!state.isRunning) return;
   const frameStart = performance.now();
 
+  if (state.racePhase === 'countdown') {
+    if (!document.hidden && raceStart.update(now)) {
+      state.racePhase = 'racing';
+      for (const car of state.cars) {
+        car.raceStartTime = now;
+        car.lapStartTime = now;
+        if (car.brain) car.brain.sectorEntryTime = now;
+      }
+      if (onlineUploader.consentEnabled) mlTelemetry.start({ trackId: state.selectedTrack, scope: 'PLAYER_ONLY', onlineOnly: true });
+    }
+    // No pre-start driving, tyre work, collisions, timing or catch-up burst at lights-out.
+    physicsAccumulator = 0;
+    lastFrameTime = now;
+  }
+  const racing = state.racePhase === 'racing';
+  renderStartLights(raceStart, now);
+
   // Física fixa a 60 Hz: o carro tem a mesma resposta em telas de 60, 120 ou 144 Hz.
-  physicsAccumulator += Math.min(100, now - lastFrameTime);
+  if (racing) physicsAccumulator += Math.min(100, now - lastFrameTime);
   lastFrameTime = now;
   let physicsTickTime = now - physicsAccumulator; // Timestamp do início dos ticks acumulados
   while (physicsAccumulator >= PHYSICS_STEP_MS) {
+    // Capture ALL cars before advancing any of them; collisions still run on
+    // the authoritative positions, never on the interpolated presentation.
+    state.cars.forEach(car => renderPoses.capture(car));
     state.cars.forEach(car => car.update());
     handleCarCollisions();
     physicsAccumulator -= PHYSICS_STEP_MS;
@@ -325,10 +370,11 @@ function gameLoop(now = performance.now()) {
     mlTelemetry.update(physicsTickTime, state);
     telemetryPerformance.recordCollector(performance.now() - collectorStart);
   }
-  updateRanks();
+  if (racing) updateRanks();
 
   const playerCar = state.cars[0];
-  mainCamera.update(playerCar, canvas);
+  const renderAlpha = physicsAccumulator / PHYSICS_STEP_MS;
+  mainCamera.update(renderPoses.sample(playerCar, renderAlpha), canvas);
 
   // 2. Limpar Tela
   ctx.fillStyle = '#060a08';
@@ -339,36 +385,43 @@ function gameLoop(now = performance.now()) {
 
   // Desenhar Pista de Mundo
   drawTrack(canvas);
+  const actorBounds = getRenderBounds(mainCamera, canvas, 4);
+  const noticeBounds = getRenderBounds(mainCamera, canvas, 50);
 
   // Marcas de Pneu / Skidmarks (em escala métrica de 0.35m de pneu)
   for (let i = state.skidMarks.length - 1; i >= 0; i--) {
     let sm = state.skidMarks[i];
-    ctx.save();
-    ctx.globalAlpha = sm.opacity * (sm.life / 180);
-    ctx.fillStyle = '#0a0a0a';
-    ctx.beginPath(); ctx.arc(sm.x, sm.y, 0.35, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    sm.life--;
+    if (withinRenderBounds(sm, actorBounds)) {
+      ctx.save();
+      ctx.globalAlpha = sm.opacity * (sm.life / 180);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.beginPath(); ctx.arc(sm.x, sm.y, 0.35, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    if (racing) sm.life--;
     if (sm.life <= 0) state.skidMarks.splice(i, 1);
   }
 
   // Partículas (Fumaça, Brita, Faíscas)
   for (let i = state.particles.length - 1; i >= 0; i--) {
-    state.particles[i].update();
-    state.particles[i].draw();
+    if (racing) state.particles[i].update();
+    if (withinRenderBounds(state.particles[i], actorBounds)) state.particles[i].draw();
     if (state.particles[i].life <= 0) state.particles.splice(i, 1);
   }
 
   // Avisos flutuantes de Pet / Punição
   for (let i = state.floatingNotices.length - 1; i >= 0; i--) {
-    state.floatingNotices[i].update();
-    state.floatingNotices[i].draw();
+    if (racing) state.floatingNotices[i].update();
+    if (withinRenderBounds(state.floatingNotices[i], noticeBounds)) state.floatingNotices[i].draw();
     if (state.floatingNotices[i].life <= 0) state.floatingNotices.splice(i, 1);
   }
 
   // Fantasmas e Carros
-  drawGhosts();
-  state.cars.forEach(car => car.draw());
+  if (racing) drawGhosts();
+  state.cars.forEach(car => {
+    const pose = renderPoses.sample(car, renderAlpha);
+    if (withinRenderBounds(pose, actorBounds)) car.draw(pose);
+  });
   drawBotDebugOverlay(ctx); // Debug overlay (ativo apenas se window.DEBUG_BOT_AI = true)
 
   mainCamera.restore(ctx);
@@ -376,9 +429,9 @@ function gameLoop(now = performance.now()) {
   // 4. Renderizar Elementos de Tela / HUD Fixos
   drawMinimap(ctx, canvas, state);
   updateHUD();
-  checkRaceEnd();
+  if (racing) checkRaceEnd();
 
   telemetryPerformance.recordFrame(performance.now() - frameStart, now);
 
-  requestAnimationFrame(gameLoop);
+  if (state.isRunning) animationFrameId = requestAnimationFrame(gameLoop);
 }

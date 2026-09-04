@@ -282,8 +282,9 @@ select option {
 
 .rpm-bar {
   height: 100%;
-  width: 0%;
-  transition: width 0.05s linear;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
   background: linear-gradient(90deg, #00ff66 0%, #ffcc00 70%, #ff0000 90%);
 }
 

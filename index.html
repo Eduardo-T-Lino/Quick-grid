@@ -4,98 +4,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GT3 World Racing - Circuitos Reais</title>
+  <title>Quick-grid — Entre no grid</title>
+  <meta name="theme-color" content="#10131a">
   <meta name="description" content="Simulador de corridas GT3 com circuitos reais, dinâmica de pneus, clima e áreas de escape.">
 </head>
 
 <body>
 
-  <div id="menu">
-    <h1>🏎️ GT3 World Racing</h1>
+  <main id="menu" aria-label="Paddock Quick-grid">
+    <div class="paddock-shell">
+      <header class="paddock-header">
+        <a class="wordmark" href="#menu" aria-label="Quick-grid, início"><span class="brand-stripes" aria-hidden="true"><i></i><i></i><i></i></span>QUICK<span>GRID</span><sup>GT3</sup></a>
+        <div class="header-section"><span class="live-dot"></span> PADDOCK <span class="header-divider">/</span> <b>CORRIDA RÁPIDA</b></div>
+        <div class="header-actions">
+          <button type="button" id="motion-toggle" class="quiet-button" aria-pressed="false" aria-label="Pausar animações do menu">Ⅱ <span>Animações</span></button>
+          <button type="button" id="controls-open" class="quiet-button">Controles <span aria-hidden="true">↗</span></button>
+        </div>
+      </header>
 
-    <div class="form-group">
-      <label for="trackSelect">Circuito (24 Pistas):</label>
-      <select id="trackSelect">
-        <!-- Populado dinamicamente via JS a partir de f1Tracks.js -->
-      </select>
-    </div>
+      <div class="paddock-body">
+        <section class="race-editorial" aria-labelledby="hero-title">
+          <div class="race-hero">
+            <div class="hero-photo" aria-hidden="true"></div>
+            <div class="hero-lines" aria-hidden="true"></div>
+            <div class="hero-copy">
+              <div class="eyebrow"><span class="red-marker"></span> GT3 RACING EXPERIENCE</div>
+              <h1 id="hero-title">SEU PRÓXIMO<br><em>LIMITE.</em></h1>
+              <p>O asfalto não espera.<br>Escolha seu circuito. Encontre seu ritmo.</p>
+            </div>
+            <div class="hero-bottom"><span class="hero-category">GT3 <b>/</b> RACE READY</span><span class="hero-caption">ARTE CONCEITUAL <span aria-hidden="true">↗</span></span></div>
+            <span class="hero-index" aria-hidden="true">01 — 24</span>
+          </div>
 
-    <div class="form-group">
-      <label for="trackCondition">Condição da Pista:</label>
-      <select id="trackCondition">
-        <option value="dry" selected>☀️ Seca — slicks na temperatura ideal</option>
-        <option value="wet">🌧️ Molhada — pouca aderência e frenagem longa</option>
-      </select>
-    </div>
+          <section class="circuit-card" aria-labelledby="circuit-name">
+            <div class="circuit-copy">
+              <div class="eyebrow"><span class="blue-marker"></span> SEU PRÓXIMO DESTINO <span id="circuit-number">21 / 24</span></div>
+              <h2 id="circuit-name">Interlagos</h2>
+              <p id="circuit-location">São Paulo, Brasil</p>
+              <div class="circuit-stats"><div><strong id="circuit-length">4.309</strong><span>QUILÔMETROS</span></div><div><strong id="circuit-elevation">43</strong><span>DESNÍVEL / M</span></div><div><strong id="circuit-weather">SECA</strong><span>CONDIÇÃO</span></div></div>
+            </div>
+            <div class="circuit-map">
+              <svg id="circuit-svg" viewBox="0 0 320 200" role="img" aria-label="Traçado do circuito selecionado"><path id="circuit-shadow"></path><path id="circuit-path"></path><path id="circuit-runner" pathLength="100"></path><circle id="circuit-start" r="4"></circle></svg>
+              <span class="map-label">TRAÇADO DO CIRCUITO <span aria-hidden="true">↗</span></span>
+            </div>
+          </section>
+          <div class="editorial-footer"><span><i class="tiny-stripes" aria-hidden="true"></i> PRECISÃO EM CADA CURVA.</span><span>24 CIRCUITOS. SEU TRAÇADO.</span></div>
+        </section>
 
-    <div class="form-group">
-      <label for="gameMode">Modo de Jogo:</label>
-      <select id="gameMode" onchange="toggleModeUI()">
-        <option value="race">🏁 Corrida vs IA Tática (Adestrável)</option>
-        <option value="ghost">👻 Modo Fantasma (Contratempo / Telemetria)</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label for="transMode">Transmissão:</label>
-      <select id="transMode">
-        <option value="auto">⚡ Automática Suave</option>
-        <option value="manual" selected>🕹️ Manual (Setas ↑ / ↓)</option>
-      </select>
-    </div>
-
-    <div id="botOptionsGroup">
-      <div class="form-group">
-        <label for="botCount">Pilotos Adversários:</label>
-        <select id="botCount">
-          <option value="1">1 Piloto</option>
-          <option value="3">3 Pilotos</option>
-          <option value="19" selected>19 Pilotos GT3</option>
-        </select>
+        <section class="race-setup" aria-labelledby="setup-title">
+          <div class="setup-heading"><span class="eyebrow">PIT WALL / CONFIGURAÇÃO</span><span class="setup-number" aria-hidden="true">01</span><h2 id="setup-title">MONTE SEU GRID.</h2><p>Uma boa corrida começa aqui.</p></div>
+          <div class="form-group track-field">
+            <label id="track-field-label" for="trackSelect"><span>01</span> CIRCUITO</label>
+            <select id="trackSelect"></select>
+            <button id="track-picker-open" class="track-picker-open" type="button" aria-haspopup="dialog" aria-controls="track-dialog" aria-expanded="false" hidden>
+              <svg viewBox="0 0 320 200" aria-hidden="true"><path id="track-picker-path"></path></svg>
+              <span class="track-picker-copy"><strong id="track-picker-name"></strong><small id="track-picker-detail"></small><span>EXPLORAR CIRCUITOS <b aria-hidden="true">↗</b></span></span>
+            </button>
+          </div>
+          <div class="setup-divider"><span>O SEU JEITO DE CORRER</span></div>
+          <div class="setup-fields">
+            <div class="form-group"><label for="gameMode">MODO DE JOGO</label><select id="gameMode"><option value="race">Corrida contra IA</option><option value="ghost">Contrarrelógio</option></select></div>
+            <div class="form-group"><label for="lapCount">VOLTAS</label><select id="lapCount"><option value="1">1 volta · Sprint</option><option value="2">2 voltas</option><option value="3" selected>3 voltas</option><option value="40">40 voltas · Mini-GP</option></select></div>
+            <div class="form-group"><label for="trackCondition">CONDIÇÃO</label><select id="trackCondition"><option value="dry" selected>Seca / Slicks</option><option value="wet">Molhada</option></select></div>
+            <div class="form-group"><label for="transMode">TRANSMISSÃO</label><select id="transMode"><option value="auto">Automática</option><option value="manual" selected>Manual</option></select></div>
+          </div>
+          <div id="botOptionsGroup"><div class="setup-fields">
+            <div class="form-group"><label for="botCount">ADVERSÁRIOS</label><select id="botCount"><option value="1">1 piloto</option><option value="3">3 pilotos</option><option value="19" selected>19 pilotos</option></select></div>
+            <div class="form-group"><label for="botDifficulty">DIFICULDADE</label><select id="botDifficulty"><option value="easy">Principiante</option><option value="medium">Veterano</option><option value="pro" selected>Profissional</option></select></div>
+          </div></div>
+          <p id="session-brief" class="session-brief" aria-live="polite">20 carros no grid · 3 voltas · Manual</p>
+          <button class="btn-main start-race" id="start-race" type="button"><span><small>PRONTO PARA O ASFALTO?</small><b id="start-label">ENTRAR NO GRID</b></span><span class="start-arrow" aria-hidden="true">↗</span></button>
+          <p id="start-status" class="start-status" role="status"></p>
+          <details class="telemetry-consent" id="telemetry-consent"><summary><span class="telemetry-icon" aria-hidden="true">▥</span> Telemetria de pilotagem <span>OPCIONAL</span></summary><div class="consent-content"><p>Permitir envio anônimo de dados de pilotagem para ajudar a melhorar os bots. Você pode correr sem permitir.</p><div class="consent-actions"><button type="button" id="consent-allow">Permitir</button><button type="button" id="consent-deny">Não permitir</button></div><small id="consent-status" aria-live="polite">Telemetria online desativada.</small></div></details>
+        </section>
       </div>
 
-      <div class="form-group">
-        <label for="botDifficulty">Nível da IA:</label>
-        <select id="botDifficulty">
-          <option value="easy">🟢 Principiante</option>
-          <option value="medium">🟡 Veterano</option>
-          <option value="pro" selected>🔴 Piloto Profissional / Pro GT3</option>
-        </select>
-      </div>
+      <footer class="paddock-footer"><div class="keyboard-hints"><span><kbd>W</kbd><kbd>S</kbd> PEDAL</span><span><kbd>A</kbd><kbd>D</kbd> DIREÇÃO</span><span><kbd>↑</kbd><kbd>↓</kbd> MARCHAS</span></div><div class="footer-actions"><span>FEITO PARA QUEM GOSTA DE CORRER.</span><button type="button" id="clear-records" class="quiet-button">Limpar recordes <span aria-hidden="true">↗</span></button></div></footer>
     </div>
+  </main>
 
-    <div class="form-group">
-      <label for="lapCount">Número de Voltas:</label>
-      <select id="lapCount">
-        <option value="1">1 Volta (Sprint Rápido)</option>
-        <option value="2">2 Voltas</option>
-        <option value="3" selected>3 Voltas</option>
-        <option value="40">40 Voltas (Mini-GP)</option>
-      </select>
+  <dialog id="controls-dialog" aria-labelledby="controls-title"><div class="dialog-heading"><span class="eyebrow">GUIA DO PILOTO</span><form method="dialog"><button class="quiet-button" aria-label="Fechar controles">✕</button></form></div><h2 id="controls-title">ASSUMA O VOLANTE.</h2><p>Use o teclado para pilotar. Os comandos são os mesmos em todos os circuitos.</p><div class="controls-grid"><div><kbd>W</kbd><span>Acelerar</span></div><div><kbd>S</kbd><span>Frear / marcha à ré</span></div><div><kbd>A</kbd><kbd>D</kbd><span>Esterçar</span></div><div><kbd>↑</kbd><kbd>↓</kbd><span>Subir / reduzir marcha</span></div></div><p class="dialog-note">Na transmissão automática, as marchas são trocadas pelo carro. Para pilotar, conecte um teclado.</p><form method="dialog"><button class="btn-main">ENTENDIDO. VAMOS CORRER.</button></form></dialog>
+
+  <dialog id="track-dialog" aria-labelledby="track-dialog-title" aria-describedby="track-dialog-description">
+    <header class="track-dialog-header">
+      <div><span class="eyebrow"><span class="blue-marker"></span> QUICK-GRID / CIRCUITOS</span><h2 id="track-dialog-title">ESCOLHA SEU ASFALTO.</h2><p id="track-dialog-description">Encontre seu destino e selecione o traçado para a próxima corrida.</p></div>
+      <form method="dialog"><button class="track-close" aria-label="Fechar seleção de pistas">✕</button></form>
+    </header>
+    <div class="track-toolbar">
+      <div class="track-search-field"><label for="track-search">BUSCAR CIRCUITO</label><input id="track-search" type="search" placeholder="Nome, cidade ou país…" autocomplete="off" spellcheck="false"></div>
+      <div class="track-filters" role="group" aria-label="Filtrar circuitos"><button type="button" data-track-filter="all" aria-pressed="true">Todos <span>24</span></button><button type="button" data-track-filter="featured" aria-pressed="false">Destaques <span>8</span></button></div>
     </div>
-
-    <div class="controls-grid">
-      <div><b>W:</b> Acelerar</div>
-      <div><b>S:</b> Freio / Ré</div>
-      <div><b>A / D:</b> Volante</div>
-      <div><b>Setas ↑ / ↓:</b> Marchas</div>
+    <div id="track-catalogue" class="track-catalogue">
+      <div class="track-catalogue-heading"><p id="track-results" role="status" aria-live="polite"></p><span>DO PRIMEIRO APEX À BANDEIRADA.</span></div>
+      <div id="track-grid" class="track-grid" role="group" aria-label="Circuitos disponíveis"></div>
+      <div id="track-empty" class="track-empty" hidden><h3>Nenhum circuito encontrado.</h3><p>Tente outro nome, cidade ou país.</p><button id="track-search-reset" type="button">Limpar busca e filtros ↗</button></div>
     </div>
-
-    <div class="telemetry-consent" id="telemetry-consent">
-      <p>Permitir envio anônimo de dados de pilotagem para ajudar a melhorar os bots.</p>
-      <div class="consent-actions">
-        <button type="button" id="consent-allow">Permitir</button>
-        <button type="button" id="consent-deny">Não permitir</button>
-      </div>
-      <small id="consent-status">Telemetria online desativada.</small>
-    </div>
-
-    <button class="btn-main" onclick="startGame()">LARGAR / INICIAR CORRIDA</button>
-    <button class="btn-danger" onclick="clearRecords()">🗑️ Limpar Recordes</button>
-  </div>
+    <footer class="track-dialog-footer"><span><i class="tiny-stripes" aria-hidden="true"></i> 24 DESTINOS. A MESMA VONTADE DE CORRER.</span><span><kbd>Esc</kbd> VOLTAR</span></footer>
+  </dialog>
 
   <div id="win-screen">
-    <h1>🏆 FIM DE GRANDE PRÊMIO</h1>
+    <div class="eyebrow">QUICK-GRID / RESULTADO FINAL</div>
+    <h1>BANDEIRADA FINAL.</h1>
     <div id="podium-list"></div>
     <button class="btn-main" onclick="backToMenu()">VOLTAR AO PADDOCK</button>
   </div>
@@ -106,7 +115,7 @@
   <div id="hud-top">
     <div class="top-badge" id="top-pos">POS: 1º</div>
     <div class="top-badge" id="top-lap">VOLTA: 1/3</div>
-    <div class="top-badge" id="top-time" style="color:#00ffcc">00:00.00</div>
+    <div class="top-badge" id="top-time">00:00.00</div>
   </div>
 
   <div id="hud-leaderboard"></div>
@@ -127,7 +136,14 @@
   </div>
 
   <div id="timer-box">⏱️ TEMPO RESTANTE: 45s</div>
-  <canvas id="gameCanvas"></canvas>
+  <section id="race-start" class="race-start" aria-label="Semáforo de largada" hidden>
+    <div class="start-gantry-label"><span>QUICK-GRID <b>/</b> RACE CONTROL</span><span>LARGADA</span></div>
+    <div class="start-gantry" aria-hidden="true">
+      <div class="start-light-pair"><i></i><i></i></div><div class="start-light-pair"><i></i><i></i></div><div class="start-light-pair"><i></i><i></i></div><div class="start-light-pair"><i></i><i></i></div><div class="start-light-pair"><i></i><i></i></div>
+    </div>
+    <p id="race-start-status" role="status" aria-live="polite">GRID FORMADO. AGUARDE AS LUZES.</p>
+  </section>
+  <canvas id="gameCanvas" tabindex="-1" aria-label="Pista de corrida. Use W e S para pedais, A e D para direção."></canvas>
 
   <script type="module" src="/src/main.js"></script>
 </body>

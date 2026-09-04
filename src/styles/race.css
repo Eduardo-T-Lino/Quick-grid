@@ -1,0 +1,26 @@
+/* No backdrop blur over a continuously repainted canvas: translucent solid panels suffice. */
+#hud-top .top-badge, #hud-bottom-right, #hud-leaderboard, #shift-alert { backdrop-filter: none; -webkit-backdrop-filter: none; }
+#hud-leaderboard, #hud-bottom-right { contain: layout style; background: #101725f5; }
+#hud-leaderboard { font-variant-numeric: tabular-nums; }
+.leader-title { color: #91b5fc; font-size: .78em; font-weight: bold; margin-bottom: 4px; }
+.leader-gap { color: #ffd700; font-size: .72em; margin-bottom: 3px; letter-spacing: .02em; }
+.leader-ghost { color: #00ffff; }
+.leader-row { border-left: 2px solid transparent; padding-left: 6px; font-weight: normal; }
+.leader-row.is-player { background: #ff22221f; border-left-color: #ff2222; padding-left: 4px; font-weight: bold; }
+.leader-row[hidden], .leader-gap[hidden], .leader-ghost[hidden] { display: none; }
+.leader-speed { white-space: nowrap; }
+#shift-alert { border-radius: 3px; animation: none; text-shadow: none; }
+#physics-alert { border-radius: 3px; box-shadow: none; }
+.race-start { position: fixed; top: 85px; left: 50%; transform: translateX(-50%); z-index: 18; width: min(440px, calc(100vw - 32px)); padding: 16px 18px 14px; border: 1px solid #3c4757; border-top: 3px solid #e94e45; background: #10141ded; box-shadow: 0 14px 50px #0006; pointer-events: none; }
+.race-start[hidden] { display: none; }
+.start-gantry-label { display: flex; justify-content: space-between; gap: 16px; color: #b5bdca; font: 600 9px 'Segoe UI', sans-serif; letter-spacing: 1.5px; }
+.start-gantry-label b { color: #f45c51; margin: 0 5px; }
+.start-gantry-label > span:last-child { color: #83a7ee; }
+.start-gantry { display: flex; justify-content: center; gap: 12px; padding: 17px 10px; margin-top: 15px; border: 1px solid #34404e; border-bottom: 4px solid #05070b; background: #090b10; }
+.start-light-pair { display: flex; flex-direction: column; gap: 9px; padding: 6px; border: 1px solid #232832; background: #11151c; border-radius: 22px; }
+.start-light-pair i { display: block; width: 38px; height: 38px; border-radius: 50%; background: #27181b; border: 2px solid #3c2429; box-shadow: inset 0 2px 6px #0009; }
+.start-light-pair.lit i { background: radial-gradient(circle at 40% 35%, #ff8c71, #f51f2d 65%); border-color: #ff6660; box-shadow: 0 0 15px #fa263277; }
+#race-start-status { margin-top: 14px; color: #e0e5ed; text-align: center; font: 600 9px/1.5 'Segoe UI', sans-serif; letter-spacing: 1.5px; }
+.race-start[data-phase="racing"] { border-top-color: #6d99ef; }
+@media (max-width: 600px) { .race-start { top: 130px; padding: 12px; } .start-gantry { gap: 7px; padding: 12px 5px; } .start-light-pair { padding: 4px; gap: 7px; } .start-light-pair i { width: 32px; height: 32px; } .start-gantry-label { font-size: 7px; letter-spacing: .8px; } #race-start-status { font-size: 8px; } }
+@media (max-height: 500px) { .race-start { top: 60px; width: 330px; padding: 10px; } .start-gantry { padding: 8px; margin-top: 8px; } .start-light-pair i { width: 24px; height: 24px; } #race-start-status { margin-top: 8px; } }

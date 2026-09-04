@@ -1,18 +1,45 @@
 // Minimapa HUD Vetorial de Alta Resolução em Tempo Real
 // Mapeia circuitos de 3.3km a 7.0km com marcadores precisos para jogador, bots e ghost.
 
+const mapGeometry = new WeakMap();
+const mapWidth = 240, mapHeight = 180, padding = 16;
+
+export function getMinimapGeometry(trackPath) {
+  if (mapGeometry.has(trackPath)) return mapGeometry.get(trackPath);
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of trackPath) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  }
+  const worldWidth = (maxX - minX) || 1, worldHeight = (maxY - minY) || 1;
+  const innerW = mapWidth - padding * 2, innerH = mapHeight - padding * 2 - 14;
+  const scale = Math.min(innerW / worldWidth, innerH / worldHeight);
+  const offsetX = padding + (innerW - worldWidth * scale) / 2;
+  const offsetY = padding + 16 + (innerH - worldHeight * scale) / 2;
+  const toMapX = wx => offsetX + (wx - minX) * scale;
+  const toMapY = wy => offsetY + (wy - minY) * scale;
+  const path = new Path2D();
+  trackPath.forEach((p, i) => {
+    if (i === 0) path.moveTo(toMapX(p.x), toMapY(p.y));
+    else path.lineTo(toMapX(p.x), toMapY(p.y));
+  });
+  path.closePath();
+  const geometry = { path, toMapX, toMapY };
+  mapGeometry.set(trackPath, geometry);
+  return geometry;
+}
+
 export function drawMinimap(ctx, canvas, state) {
   const { trackPath, cars, selectedTrackData, bestLapPath, ghostLapFrameIndex, gameMode } = state;
   if (!trackPath || trackPath.length === 0) return;
 
-  const mapWidth = 240;
-  const mapHeight = 180;
-  const padding = 16;
-  const posX = 16;
-  const posY = canvas.height - mapHeight - 16;
+  // Local coordinates let the same geometry follow viewport resizes without rebuilding it.
+  const posX = 0, posY = 0;
+  const { path, toMapX, toMapY } = getMinimapGeometry(trackPath);
 
   // 1. Fundo Glassmorphism Translúcido
   ctx.save();
+  ctx.translate(16, canvas.height - mapHeight - 16);
   ctx.fillStyle = 'rgba(10, 14, 20, 0.88)';
   ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
   ctx.lineWidth = 1.5;
@@ -34,49 +61,19 @@ export function drawMinimap(ctx, canvas, state) {
   ctx.textAlign = 'right';
   ctx.fillText(trackLen, posX + mapWidth - 10, posY + 16);
 
-  // 2. Calcular Bounding Box em Metros Reais
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (let p of trackPath) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.y < minY) minY = p.y;
-    if (p.y > maxY) maxY = p.y;
-  }
-
-  const worldWidth = (maxX - minX) || 1;
-  const worldHeight = (maxY - minY) || 1;
-
-  const innerW = mapWidth - padding * 2;
-  const innerH = mapHeight - padding * 2 - 14;
-
-  const scale = Math.min(innerW / worldWidth, innerH / worldHeight);
-  const offsetX = posX + padding + (innerW - worldWidth * scale) / 2;
-  const offsetY = posY + padding + 16 + (innerH - worldHeight * scale) / 2;
-
-  const toMapX = (wx) => offsetX + (wx - minX) * scale;
-  const toMapY = (wy) => offsetY + (wy - minY) * scale;
-
-  // 3. Traçado Vetorial da Pista
-  ctx.beginPath();
-  trackPath.forEach((p, i) => {
-    let mx = toMapX(p.x);
-    let my = toMapY(p.y);
-    if (i === 0) ctx.moveTo(mx, my);
-    else ctx.lineTo(mx, my);
-  });
-  ctx.closePath();
+  // 2/3. Reuse the full-resolution outline; markers remain live on every frame.
 
   // Contorno externo suave
   ctx.strokeStyle = '#334455';
   ctx.lineWidth = 6;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.stroke();
+  ctx.stroke(path);
 
   // Linha central brilhante
   ctx.strokeStyle = '#b0d4ff';
   ctx.lineWidth = 2.5;
-  ctx.stroke();
+  ctx.stroke(path);
 
   // Linha de largada/chegada no minimapa
   const startP = trackPath[0];

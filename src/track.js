@@ -6,6 +6,9 @@ import { F1_TRACKS } from './f1Tracks.js';
 import { state } from './game.js';
 import { mainCamera } from './camera.js';
 import { MAX_INTERNAL_SPEED } from './constants.js';
+import { getVisibleTrackRenderPaths, getRenderBounds, withinRenderBounds } from './renderGeometry.js';
+import { getTrackMaterials } from './trackAppearance.js';
+import { TrackTileCache } from './trackTileCache.js';
 
 // Dicionário de Nomes Oficiais das Curvas F1 por Pista
 const TRACK_SECTORS = {
@@ -267,7 +270,22 @@ export function computeTrackSpeedProfile(trackPath) {
   }
 }
 
+const trackTiles = new TrackTileCache();
+
 export function drawTrack(canvas) {
+  if (!state.trackPath?.length) return;
+  const data = state.selectedTrackData;
+  const width = data?.trackWidth || 24;
+  trackTiles.reset(state.trackPath, JSON.stringify([data?.id, width, data?.escapeType, data?.kerbColors, state.trackCondition]));
+  const materials = getTrackMaterials(ctx);
+  trackTiles.draw(ctx, getRenderBounds(mainCamera, canvas), (tileContext, bounds) => {
+    const padding = width + 24;
+    paintTrack(tileContext, { minX: bounds.minX - padding, minY: bounds.minY - padding,
+      maxX: bounds.maxX + padding, maxY: bounds.maxY + padding }, materials);
+  });
+}
+
+function paintTrack(ctx, detailBounds, materials) {
   const { trackPath, selectedTrackData, trackCondition } = state;
   if (!trackPath || trackPath.length === 0) return;
 
@@ -276,10 +294,14 @@ export function drawTrack(canvas) {
   const escapeType = (selectedTrackData && selectedTrackData.escapeType) || 'gravel_asphalt';
   const totalPoints = trackPath.length;
 
+  const borderDist = trackWidth / 2;
+  const barrierDist = (escapeType === 'walls' || escapeType === 'barriers') ? (borderDist + 3.0) : (borderDist + 11.5);
+  const paths = getVisibleTrackRenderPaths(trackPath, borderDist, barrierDist, detailBounds);
+  // Ground and road materials are paint only, anchored in the unchanged world space.
+  ctx.fillStyle = materials.grass;
+  ctx.fillRect(detailBounds.minX, detailBounds.minY, detailBounds.maxX - detailBounds.minX, detailBounds.maxY - detailBounds.minY);
+
   // 1. ÁREAS DE ESCAPE EXTERNAS (Caixas de Brita e Asfalto de Segurança)
-  ctx.beginPath();
-  trackPath.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
-  ctx.closePath();
 
   if (escapeType === 'walls' || escapeType === 'barriers') {
     // Circuito de rua (Monaco, Baku, Vegas, Jeddah)
@@ -287,29 +309,31 @@ export function drawTrack(canvas) {
     ctx.lineWidth = trackWidth + 6.0;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.stroke();
+    ctx.stroke(paths.center);
 
     // Barreiras Tecpro de concreto / Armco
     ctx.strokeStyle = '#e0e0e0';
     ctx.lineWidth = trackWidth + 7.5;
-    ctx.stroke();
+    ctx.stroke(paths.center);
   } else {
+    // Paint the outside edge first; painting it last used to cover both gravel and runoff.
+    ctx.strokeStyle = '#4f585d';
+    ctx.lineWidth = trackWidth + 23.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke(paths.center);
     // Pistas tradicionais: Caixa de Brita de 20m de largura
-    ctx.strokeStyle = '#8a7752'; // Cor de cascalho/areia de escape
+    ctx.strokeStyle = materials.gravel;
     ctx.lineWidth = trackWidth + 22.0;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.stroke();
+    ctx.stroke(paths.center);
 
     // Faixa de asfalto de segurança intermediária
     ctx.strokeStyle = '#2b333d';
     ctx.lineWidth = trackWidth + 6.5;
-    ctx.stroke();
+    ctx.stroke(paths.center);
 
-    // Guardrail metálico externo ao redor da brita
-    ctx.strokeStyle = '#5a626d';
-    ctx.lineWidth = trackWidth + 23.5;
-    ctx.stroke();
   }
 
   // 2. ZEBRAS 3D AUTÊNTICAS (KERBS) NAS ENTRADAS E SAÍDAS DE CURVA
@@ -317,6 +341,7 @@ export function drawTrack(canvas) {
 
   for (let i = 0; i < totalPoints; i += 2) {
     let p = trackPath[i];
+    if (!withinRenderBounds(p, detailBounds)) continue;
     if (p.curvature > 0.008) { // Curva detectada
       ctx.save();
       ctx.translate(p.x, p.y);
@@ -336,14 +361,11 @@ export function drawTrack(canvas) {
   }
 
   // 3. ASFALTO PRINCIPAL DA PISTA (24m de largura)
-  ctx.beginPath();
-  trackPath.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
-  ctx.closePath();
   ctx.lineWidth = trackWidth;
-  ctx.strokeStyle = trackCondition === 'wet' ? '#202b34' : '#181b20';
+  ctx.strokeStyle = trackCondition === 'wet' ? materials.wet : materials.asphalt;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.stroke();
+  ctx.stroke(paths.center);
 
   // Reflexos sutis deixam claro que o asfalto está molhado sem poluir a corrida.
   if (trackCondition === 'wet') {
@@ -351,32 +373,30 @@ export function drawTrack(canvas) {
     ctx.globalAlpha = 0.18;
     ctx.strokeStyle = '#88b9d7';
     ctx.lineWidth = trackWidth * 0.58;
-    ctx.stroke();
+    ctx.stroke(paths.center);
     ctx.restore();
   }
 
   // 4. LINHA DE EMBORRACHAMENTO DA TRAJETÓRIA IDEAL (Racing Line Groove)
   ctx.save();
-  ctx.beginPath();
-  trackPath.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
-  ctx.closePath();
   ctx.lineWidth = trackWidth * 0.38;
   ctx.strokeStyle = 'rgba(10, 11, 14, 0.50)';
-  ctx.stroke();
+  ctx.stroke(paths.center);
   ctx.restore();
 
   // 5. SOMBREADO DE RELEVO E ELEVAÇÃO 3D (Subidas iluminadas, descidas sombreadas)
   for (let i = 0; i < totalPoints; i += 3) {
     let p = trackPath[i];
+    if (!withinRenderBounds(p, detailBounds)) continue;
     if (Math.abs(p.slope) > 0.004) {
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.angle + Math.PI / 2);
 
       if (p.slope > 0) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.15, p.slope * 3.5)})`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.025, p.slope * 0.35)})`;
       } else {
-        ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(0.30, Math.abs(p.slope) * 5.0)})`;
+        ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(0.035, Math.abs(p.slope) * 0.5)})`;
       }
       ctx.fillRect(-trackWidth / 2, -2.0, trackWidth, 4.0);
       ctx.restore();
@@ -384,40 +404,25 @@ export function drawTrack(canvas) {
   }
 
   // 6. LINHAS BRANCAS DE LIMITE DE PISTA (Track Limits - 25cm)
-  const borderDist = trackWidth / 2;
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
   ctx.lineWidth = 0.40;
 
   // Borda Esquerda
-  ctx.beginPath();
-  trackPath.forEach((p, i) => {
-    let lx = p.x + p.normalX * borderDist;
-    let ly = p.y + p.normalY * borderDist;
-    if (i === 0) ctx.moveTo(lx, ly); else ctx.lineTo(lx, ly);
-  });
-  ctx.closePath();
-  ctx.stroke();
+  ctx.stroke(paths.left);
 
   // Borda Direita
-  ctx.beginPath();
-  trackPath.forEach((p, i) => {
-    let rx = p.x - p.normalX * borderDist;
-    let ry = p.y - p.normalY * borderDist;
-    if (i === 0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
-  });
-  ctx.closePath();
-  ctx.stroke();
+  ctx.stroke(paths.right);
 
   // 6b. BARREIRAS FÍSICAS NAS BORDAS DA PISTA (PÓS CAIXA DE BRITA)
   // Armco / Guardrail no limite externo da brita para pistas tradicionais
   // Muros de concreto para pistas de rua
-  const barrierDist = (escapeType === 'walls' || escapeType === 'barriers') ? (borderDist + 3.0) : (borderDist + 11.5);
 
   if (escapeType === 'walls' || escapeType === 'barriers') {
     // === MUROS DE CONCRETO JERSEY (circuitos urbanos) ===
     // Bloco cinza com faixa laranja/branca
     for (let i = 0; i < totalPoints; i += 4) {
       let p = trackPath[i];
+      if (!withinRenderBounds(p, detailBounds)) continue;
       // Lado esquerdo
       ctx.save();
       ctx.translate(p.x + p.normalX * barrierDist, p.y + p.normalY * barrierDist);
@@ -448,28 +453,15 @@ export function drawTrack(canvas) {
     ctx.strokeStyle = '#6b7280';
     ctx.lineWidth = 0.55;
     // Borda esquerda
-    ctx.beginPath();
-    trackPath.forEach((p, i) => {
-      let lx = p.x + p.normalX * barrierDist;
-      let ly = p.y + p.normalY * barrierDist;
-      if (i === 0) ctx.moveTo(lx, ly); else ctx.lineTo(lx, ly);
-    });
-    ctx.closePath();
-    ctx.stroke();
+    ctx.stroke(paths.barrierLeft);
     // Borda direita
-    ctx.beginPath();
-    trackPath.forEach((p, i) => {
-      let rx = p.x - p.normalX * barrierDist;
-      let ry = p.y - p.normalY * barrierDist;
-      if (i === 0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
-    });
-    ctx.closePath();
-    ctx.stroke();
+    ctx.stroke(paths.barrierRight);
     ctx.restore();
 
     // Postes de suporte do guardrail a cada ~6m
     for (let i = 0; i < totalPoints; i += 4) {
       let p = trackPath[i];
+      if (!withinRenderBounds(p, detailBounds)) continue;
       // Poste esquerdo
       ctx.save();
       ctx.translate(p.x + p.normalX * barrierDist, p.y + p.normalY * barrierDist);
@@ -511,6 +503,7 @@ export function drawTrack(canvas) {
     let slotDist = 8 + slot * 9;
     let gridIdx = (totalPoints - Math.floor(slotDist * 2.5) + totalPoints) % totalPoints;
     let gp = trackPath[gridIdx];
+    if (!withinRenderBounds(gp, detailBounds)) continue;
 
     [-1, 1].forEach((colSide, colIdx) => {
       let slotNum = slot * 2 + colIdx + 1;
@@ -535,6 +528,7 @@ export function drawTrack(canvas) {
   // 9. PLACAS DE METROS DE FRENAGEM (150m, 100m, 50m)
   for (let i = 0; i < totalPoints; i += 35) {
     let p = trackPath[i];
+    if (!withinRenderBounds(p, detailBounds)) continue;
     let nextP = trackPath[(i + 25) % totalPoints];
     if (nextP.curvature > 0.015) {
       let signX = p.x + p.normalX * (trackWidth / 2 + 3.2);
@@ -559,14 +553,12 @@ export function drawTrack(canvas) {
   sectors.forEach(sec => {
     let pointIdx = Math.floor(sec.pct * totalPoints) % totalPoints;
     let sp = trackPath[pointIdx];
-    if (sp) {
+    if (sp && withinRenderBounds(sp, detailBounds)) {
       ctx.save();
       ctx.translate(sp.x + sp.normalX * (trackWidth / 2 + 6.5), sp.y + sp.normalY * (trackWidth / 2 + 6.5));
       ctx.rotate(sp.angle);
       ctx.font = 'bold 1.4px sans-serif';
-      ctx.fillStyle = '#00e5ff';
-      ctx.shadowColor = '#000';
-      ctx.shadowBlur = 4;
+      ctx.fillStyle = '#d8e6df';
       ctx.textAlign = 'center';
       ctx.fillText(sec.name, 0, 0);
       ctx.restore();

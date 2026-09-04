@@ -1,0 +1,75 @@
+/* Circuit catalogue: the same red/blue paddock language, with real track outlines. */
+#menu .track-picker-open { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 12px; text-align: left; background: #202937; border: 1px solid #465778; border-left: 3px solid var(--blue); border-radius: 2px; color: var(--paper); cursor: pointer; transition: background .2s, border-color .2s; }
+#menu .track-picker-open:hover { background: #2a3548; border-color: #8aaeff; }
+#menu .track-picker-open[hidden], #trackSelect[hidden], #track-empty[hidden] { display: none; }
+.track-picker-open svg { flex: 0 0 72px; width: 72px; height: 62px; }
+.track-picker-open path { fill: none; stroke: #93b5ff; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+.track-picker-copy { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.track-picker-copy strong { font: 650 17px/1.1 var(--display); }
+.track-picker-copy small { font: 10px/1.5 'Segoe UI', sans-serif; color: #b0bbcd; }
+.track-picker-copy > span { font-size: 8px; letter-spacing: 1px; color: #a6c2ff; }
+.track-picker-copy b { color: var(--red); margin-left: 5px; }
+#track-dialog { width: min(1060px, calc(100% - 48px)); max-height: calc(100dvh - 64px); margin: auto; padding: 0; overflow: hidden; color: var(--paper); background: #141a23; border: 1px solid #43516a; border-top: 3px solid var(--blue); box-shadow: 0 30px 100px #000b; }
+#track-dialog[open] { display: flex; flex-direction: column; }
+#track-dialog::backdrop { background: #030712d9; backdrop-filter: blur(5px); }
+.track-dialog-header { display: flex; justify-content: space-between; gap: 24px; padding: 26px 30px 20px; flex-shrink: 0; }
+.track-dialog-header h2 { font: 800 clamp(25px, 3vw, 36px)/1.05 var(--display); letter-spacing: -.8px; margin: 12px 0 10px; }
+.track-dialog-header p { color: #aebaca; font-size: 12px; line-height: 1.5; }
+#track-dialog button { border-radius: 2px; box-shadow: none; cursor: pointer; }
+#track-dialog .track-close { min-width: 40px; height: 40px; padding: 0; border: 1px solid #4b596f; background: #222b39; color: #dce5f5; font-size: 16px; }
+.track-toolbar { display: flex; align-items: end; gap: 24px; padding: 0 30px 20px; border-bottom: 1px solid #344052; flex-shrink: 0; }
+.track-search-field { flex: 1; min-width: 0; }
+.track-search-field label { font-size: 9px; font-weight: 500; letter-spacing: 1.4px; margin-bottom: 8px; color: #afbed4; }
+#track-search { width: 100%; height: 44px; border: 1px solid #4b5a73; border-radius: 2px; background: #0d131d; color: var(--paper); padding: 0 13px; font: 14px 'Segoe UI', sans-serif; }
+#track-search::placeholder { color: #96a6bd; }
+#track-search:focus-visible { outline: 2px solid #9cbcff; outline-offset: 2px; }
+.track-filters { display: flex; gap: 8px; flex-shrink: 0; white-space: nowrap; }
+#track-dialog .track-filters button { height: 44px; padding: 0 16px; border: 1px solid #3c4b61; background: transparent; color: #b5c2d5; font-size: 12px; }
+#track-dialog .track-filters button[aria-pressed="true"] { color: white; background: #284b89; border-color: #6d96ed; }
+.track-filters span { font: 10px Consolas, monospace; margin-left: 8px; opacity: .8; }
+.track-catalogue { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding: 18px 30px 28px; scrollbar-color: #536685 #141a23; }
+.track-catalogue-heading { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 15px; color: #9fafc5; font-size: 10px; }
+.track-catalogue-heading > span { font-size: 8px; letter-spacing: 1.3px; }
+.track-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+#track-dialog .track-option { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 14px; border: 1px solid #354154; background: #1b2330; color: var(--paper); text-align: left; transition: border-color .15s, background .15s; }
+#track-dialog .track-option:hover { border-color: #85aaff; background: #222e41; }
+#track-dialog .track-option[aria-pressed="true"] { border-color: #ef746a; background: #292430; box-shadow: inset 0 3px var(--red); }
+.track-option-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #9bacbf; font: 11px Consolas, monospace; }
+.track-option-status { font: 7px 'Segoe UI', sans-serif; letter-spacing: .8px; color: #a8c3ff; }
+.track-option[aria-pressed="true"] .track-option-status { color: #ffada6; }
+.track-option svg { width: 100%; height: 110px; margin: 10px 0; }
+.track-option path { fill: none; stroke: #8ca6ce; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.track-option circle { fill: var(--red); stroke: #171e29; stroke-width: 2; }
+.track-option:hover path { stroke: #c3d8ff; }
+.track-option[aria-pressed="true"] path { stroke: #f4e8e3; }
+.track-option strong { font: 600 16px/1.25 var(--display); }
+.track-option-location { margin: 7px 0 14px; color: #b0bdcf; font-size: 10px; line-height: 1.5; }
+.track-option-length { padding-top: 10px; border-top: 1px solid #394151; margin-top: auto; color: #8faade; font-size: 9px; }
+.track-empty { padding: 48px 15px; text-align: center; }
+.track-empty h3 { font: 600 22px var(--display); }
+.track-empty p { color: #aebaca; font-size: 13px; margin: 12px; }
+#track-search-reset { background: #284b89; color: white; border: 1px solid #7097e5; padding: 12px 18px; margin-top: 10px; }
+.track-dialog-footer { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 13px 30px; border-top: 1px solid #344052; font-size: 8px; letter-spacing: 1px; color: #a4b2c8; flex-shrink: 0; }
+.track-dialog-footer > span:last-child { white-space: nowrap; }
+.track-dialog-footer kbd { margin-right: 5px; }
+@media (max-width: 900px) { .track-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  #track-dialog { width: calc(100% - 20px); max-height: calc(100dvh - 24px); }
+  .track-dialog-header { padding: 20px 16px 16px; gap: 12px; }
+  .track-dialog-header .eyebrow { font-size: 7px; letter-spacing: 1px; }
+  .track-dialog-header h2 { font-size: 25px; }
+  .track-dialog-header p { font-size: 11px; }
+  .track-toolbar { flex-direction: column; align-items: stretch; padding: 0 16px 16px; gap: 12px; }
+  #track-search { font-size: 16px; }
+  .track-filters button { flex: 1; }
+  .track-catalogue { padding: 16px; }
+  .track-catalogue-heading > span { display: none; }
+  .track-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  #track-dialog .track-option { padding: 10px; }
+  .track-option svg { height: 90px; margin: 6px 0; }
+  .track-option strong { font-size: 14px; }
+  .track-option-status { font-size: 6px; letter-spacing: .3px; }
+  .track-option-length { font-size: 8px; }
+  .track-dialog-footer { padding: 12px 16px; font-size: 7px; }
+  .track-dialog-footer > span:last-child { display: none; }
+}

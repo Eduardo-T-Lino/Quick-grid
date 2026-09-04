@@ -12,6 +12,7 @@ import {
 import { Particle, SparkParticle } from './particles.js';
 import { state } from './game.js';
 import { BotBrain } from './ai.js';
+import { drawCarAppearance } from './carAppearance.js';
 
 export class Car {
   constructor(color, name, isBot, index, isAuto = true) {
@@ -527,83 +528,7 @@ export class Car {
     this.progress = (this.currentLap * 1000000) + (this.nextCheckpoint * 50000) - distToCp;
   }
 
-  draw() {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.angle);
-
-    // Silhueta GT3: carroceria fechada, para-lamas, difusor e asa traseira.
-    ctx.fillStyle = 'rgba(0,0,0,0.50)';
-    ctx.fillRect(-2.65, -1.12, 5.3, 2.24);
-
-    // Carroceria larga de GT
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    ctx.roundRect(-2.35, -0.86, 4.7, 1.72, 0.45);
-    ctx.fill();
-
-    // Splitter dianteiro
-    ctx.fillStyle = '#151515';
-    ctx.beginPath();
-    ctx.moveTo(2.20, -0.98);
-    ctx.lineTo(2.72, -0.72);
-    ctx.lineTo(2.72, 0.72);
-    ctx.lineTo(2.20, 0.98);
-    ctx.closePath();
-    ctx.fill();
-
-    // Vidro e teto fechados
-    ctx.fillStyle = '#111111';
-    ctx.beginPath();
-    ctx.roundRect(-0.65, -0.56, 1.65, 1.12, 0.35);
-    ctx.fill();
-    ctx.fillStyle = '#92c7e8';
-    ctx.beginPath();
-    ctx.arc(0.45, 0, 0.28, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Rodas sob os para-lamas
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(-1.75, -1.15, 0.95, 0.38);
-    ctx.fillRect(-1.75, 0.77, 0.95, 0.38);
-
-    // Rodas Dianteiras Dinâmicas (Esterçam com o volante!)
-    const steerAngleWheel = (this.steerAmount || 0) * 0.35; // Ângulo de esterço das rodas
-
-    // Rodas dianteiras esterçantes
-    ctx.save();
-    ctx.translate(1.4, -0.95);
-    ctx.rotate(steerAngleWheel);
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(-0.38, -0.19, 0.75, 0.38);
-    // Faixa Pirelli amarela
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 0.06;
-    ctx.strokeRect(-0.38, -0.19, 0.75, 0.38);
-    ctx.restore();
-
-    // Roda Dianteira Direita
-    ctx.save();
-    ctx.translate(1.4, 0.95);
-    ctx.rotate(steerAngleWheel);
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(-0.38, -0.19, 0.75, 0.38);
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 0.06;
-    ctx.strokeRect(-0.38, -0.19, 0.75, 0.38);
-    ctx.restore();
-
-    // Asa traseira e luz de chuva LED
-    ctx.fillStyle = '#141414';
-    ctx.fillRect(-2.56, -1.06, 0.25, 2.12);
-    ctx.fillRect(-2.75, -0.88, 0.22, 1.76);
-    if (this.brakePressure > 0.1 || this.currentSurface === 'GRAVEL') {
-      ctx.fillStyle = '#ff0000';
-      ctx.fillRect(-2.65, -0.15, 0.15, 0.3);
-    }
-
-    ctx.restore();
-
-    // Indicador de rank acima do bot (apenas bots, sem emoji para performance)
+  draw(pose = this) {
+    drawCarAppearance(ctx, this, pose);
   }
 }

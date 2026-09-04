@@ -1,6 +1,15 @@
 import { ctx } from './canvas.js';
 import { MAX_SPEED_KMH, MAX_INTERNAL_SPEED } from './constants.js';
 import { state } from './game.js';
+import { createLeaderboardView } from './leaderboardView.js';
+
+function setHudText(id, value) {
+  const element = document.getElementById(id);
+  const text = String(value);
+  if (element.textContent !== text) element.textContent = text;
+}
+
+let updateLeaderboard;
 
 export function updateHUD() {
   const p1 = state.cars[0];
@@ -8,27 +17,27 @@ export function updateHUD() {
 
   const { totalLaps, gameMode, selectedTrackData } = state;
 
-  document.getElementById('top-pos').innerText = `POS: ${p1.rank}º / ${state.cars.length}`;
-  document.getElementById('top-lap').innerText = `VOLTA: ${Math.min(p1.currentLap, totalLaps)} / ${totalLaps}`;
+  setHudText('top-pos', `POS: ${p1.rank}º / ${state.cars.length}`);
+  setHudText('top-lap', `VOLTA: ${Math.min(p1.currentLap, totalLaps)} / ${totalLaps}`);
 
   let minutes = Math.floor(p1.currentLapTime / 60);
   let seconds = (p1.currentLapTime % 60).toFixed(2);
-  document.getElementById('top-time').innerText = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  setHudText('top-time', `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
 
-  document.getElementById('player-name').innerText = p1.name;
-  document.getElementById('speed-val').innerText = p1.getKmh();
-  document.getElementById('gear-val').innerText = `${p1.gear}ª MARCHA`;
-  document.getElementById('mode-tag').innerText = p1.isAuto ? 'AUTO' : 'MANUAL';
+  setHudText('player-name', p1.name);
+  setHudText('speed-val', p1.getKmh());
+  setHudText('gear-val', `${p1.gear}ª MARCHA`);
+  setHudText('mode-tag', p1.isAuto ? 'AUTO' : 'MANUAL');
   const tyreStatus = document.getElementById('tyre-status');
   const assistStatus = document.getElementById('assist-status');
   const tyreTemp = Math.round(p1.tyreTemp || 0);
-  tyreStatus.innerText = `PNEUS ${tyreTemp}°C`;
+  setHudText('tyre-status', `PNEUS ${tyreTemp}°C`);
   tyreStatus.style.color = tyreTemp < 60 ? '#65b9ff' : (tyreTemp > 112 ? '#ff684f' : '#7dff9a');
-  assistStatus.innerText = p1.tcActive ? 'TC ATUANDO' : (p1.absActive ? 'ABS ATUANDO' : 'TC / ABS');
+  setHudText('assist-status', p1.tcActive ? 'TC ATUANDO' : (p1.absActive ? 'ABS ATUANDO' : 'TC / ABS'));
   assistStatus.style.color = (p1.tcActive || p1.absActive) ? '#ffd45a' : '#9eabb8';
 
   let rpmPercent = Math.min(100, Math.max(0, ((p1.rpm - 1000) / 7500) * 100));
-  document.getElementById('rpm-bar').style.width = `${rpmPercent}%`;
+  document.getElementById('rpm-bar').style.transform = `scaleX(${rpmPercent / 100})`;
 
   const shiftTextEl = document.getElementById('shift-text');
   const shiftAlertEl = document.getElementById('shift-alert');
@@ -37,104 +46,53 @@ export function updateHUD() {
   // Alerta de Troca de Marcha
   if (!p1.isAuto && !p1.finished) {
     if (p1.gear < p1.maxGear && p1.rpm > 7400) {
-      shiftAlertEl.innerText = '⬆️ TROQUE DE MARCHA! (SETA ↑)';
+      setHudText('shift-alert', '⬆️ TROQUE DE MARCHA! (SETA ↑)');
       shiftAlertEl.className = 'shift-up-alert';
       shiftAlertEl.style.display = 'block';
 
-      shiftTextEl.innerText = '⬆️ SUBIR MARCHA!';
+      setHudText('shift-text', '⬆️ SUBIR MARCHA!');
       shiftTextEl.style.color = '#ff3333';
     } else if (p1.gear > 1 && p1.rpm < 2200 && p1.getKmh() > 15) {
-      shiftAlertEl.innerText = '⬇️ REDUZA A MARCHA! (SETA ↓)';
+      setHudText('shift-alert', '⬇️ REDUZA A MARCHA! (SETA ↓)');
       shiftAlertEl.className = 'shift-down-alert';
       shiftAlertEl.style.display = 'block';
 
-      shiftTextEl.innerText = '⬇️ REDUZIR MARCHA!';
+      setHudText('shift-text', '⬇️ REDUZIR MARCHA!');
       shiftTextEl.style.color = '#ffcc00';
     } else {
       shiftAlertEl.style.display = 'none';
-      shiftTextEl.innerText = `${Math.round(p1.rpm)} RPM`;
+      setHudText('shift-text', `${Math.round(p1.rpm)} RPM`);
       shiftTextEl.style.color = '#ffffff';
     }
   } else {
     shiftAlertEl.style.display = 'none';
-    shiftTextEl.innerText = `${Math.round(p1.rpm)} RPM`;
+    setHudText('shift-text', `${Math.round(p1.rpm)} RPM`);
     shiftTextEl.style.color = '#ffffff';
   }
 
   // Alertas de Física & Superfície (Brita, Sub/Sobre-esterço)
   if (p1.currentSurface === 'GRAVEL' && !p1.finished) {
-    physicsAlertEl.innerText = '⚠️ CAIXA DE BRITA! (PERDA DE ADERÊNCIA)';
+    setHudText('physics-alert', '⚠️ CAIXA DE BRITA! (PERDA DE ADERÊNCIA)');
     physicsAlertEl.className = 'alert-gravel';
     physicsAlertEl.style.display = 'block';
   } else if (state.trackCondition === 'wet' && !p1.finished && (p1.tcActive || p1.absActive)) {
-    physicsAlertEl.innerText = '🌧️ PISTA MOLHADA — TC / ABS ATUANDO';
+    setHudText('physics-alert', '🌧️ PISTA MOLHADA — TC / ABS ATUANDO');
     physicsAlertEl.className = 'alert-understeer';
     physicsAlertEl.style.display = 'block';
   } else if (p1.physicsState === 'UNDERSTEER' && !p1.finished) {
-    physicsAlertEl.innerText = '⚠️ PASSANDO RETO! (SUB-ESTERÇO)';
+    setHudText('physics-alert', '⚠️ PASSANDO RETO! (SUB-ESTERÇO)');
     physicsAlertEl.className = 'alert-understeer';
     physicsAlertEl.style.display = 'block';
   } else if (p1.physicsState === 'OVERSTEER' && !p1.finished) {
-    physicsAlertEl.innerText = '🚨 TRASEIRA SOLTA! (SOBRE-ESTERÇO)';
+    setHudText('physics-alert', '🚨 TRASEIRA SOLTA! (SOBRE-ESTERÇO)');
     physicsAlertEl.className = 'alert-oversteer';
     physicsAlertEl.style.display = 'block';
   } else {
     physicsAlertEl.style.display = 'none';
   }
 
-  // Leaderboard HUD — mostra 2 à frente e 2 atrás do jogador
-  if (gameMode === 'race') {
-    let sorted = [...state.cars].sort((a, b) => a.rank - b.rank);
-    const playerRank = p1.rank; // 1-indexed
-    const total = sorted.length;
-
-    // Janela dinâmica: 2 à frente e 2 atrás, ajustando nas extremidades
-    let windowStart, windowEnd;
-    if (playerRank <= 1) {
-      // 1º lugar: mostra os 4 atrás
-      windowStart = 0;
-      windowEnd = Math.min(total - 1, 4);
-    } else if (playerRank >= total) {
-      // Último: mostra os 4 à frente
-      windowStart = Math.max(0, total - 5);
-      windowEnd = total - 1;
-    } else {
-      // Intermediário: 2 à frente + jogador + 2 atrás
-      windowStart = Math.max(0, playerRank - 3);
-      windowEnd = Math.min(total - 1, playerRank + 1);
-    }
-
-    // Gap ao carro diretamente à frente do jogador
-    let gapText = '';
-    const carAhead = sorted.find(c => c.rank === playerRank - 1);
-    if (carAhead && !carAhead.finished) {
-      const dist = Math.hypot(carAhead.x - p1.x, carAhead.y - p1.y);
-      const distM = Math.round(dist);
-      const shortName = carAhead.name.split(' ').pop();
-      gapText = `<div style="font-size:0.72em; color:#ffd700; margin-bottom:3px; letter-spacing:0.02em;">▲ ${shortName} &mdash; ${distM < 1000 ? distM + 'm' : (dist / 1000).toFixed(1) + 'km'}</div>`;
-    }
-
-    const rows = sorted.slice(windowStart, windowEnd + 1).map(c => {
-      const isPlayer = !c.isBot;
-      return `<div class="leader-row" style="
-        color:${c.color};
-        background:${isPlayer ? 'rgba(255,34,34,0.12)' : 'transparent'};
-        border-left:${isPlayer ? '2px solid #ff2222' : '2px solid transparent'};
-        padding-left:${isPlayer ? '4px' : '6px'};
-        font-weight:${isPlayer ? 'bold' : 'normal'};
-      "><span>${c.rank}º ${isPlayer ? '▶ ' : ''}${c.name.split(' ').pop()}</span><span>${c.getKmh()} km/h</span></div>`;
-    }).join('');
-
-    document.getElementById('hud-leaderboard').innerHTML = `
-      <div style="font-size:0.78em; color:#00e5ff; font-weight:bold; margin-bottom:4px;">${selectedTrackData ? selectedTrackData.location : 'CORRIDA GT3'}</div>
-      ${gapText}${rows}
-    `;
-  } else {
-    document.getElementById('hud-leaderboard').innerHTML = `
-      <div style="font-size:0.8em; color:#00e5ff; font-weight:bold; margin-bottom:4px;">${selectedTrackData ? selectedTrackData.location : 'CONTRATEMPO GT3'}</div>
-      <div style="color:#00ffff">⚡ Melh. Volta: ${state.bestLapTime ? state.bestLapTime.toFixed(2) + 's' : '--'}</div>
-    `;
-  }
+  updateLeaderboard ||= createLeaderboardView(document.getElementById('hud-leaderboard'));
+  updateLeaderboard(state);
 }
 
 export function showVictoryScreen() {

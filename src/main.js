@@ -1,4 +1,8 @@
 import './styles/main.css';
+import './styles/paddock.css';
+import './styles/trackPicker.css';
+import './styles/race.css';
+import { initPaddock } from './paddock.js';
 import { F1_TRACKS } from './f1Tracks.js';
 import { state, resizeCanvas, startGame, backToMenu, clearRecords, toggleModeUI } from './game.js';
 import { onlineUploader, mlTelemetry } from './ml/telemetry/index.js';
@@ -49,7 +53,7 @@ function populateTrackSelect() {
   for (const track of sorted) {
     const opt = document.createElement('option');
     opt.value = track.id;
-    opt.textContent = `${track.location.split(',').pop().trim()} ${track.name} (${track.lengthKm} | Elev: ${track.elevationDiff})`;
+    opt.textContent = `${track.id === 21 ? 'Interlagos' : track.name} · ${track.lengthKm}`;
     if (track.id === 21) opt.selected = true; // Interlagos como padrão
     select.appendChild(opt);
   }
@@ -58,7 +62,7 @@ function populateTrackSelect() {
 // ========== EVENT LISTENERS ==========
 window.addEventListener('keydown', e => {
   state.keys[e.code] = true;
-  if (state.isRunning && state.cars.length > 0 && !state.cars[0].isBot && !state.cars[0].finished) {
+  if (state.isRunning && state.racePhase === 'racing' && state.cars.length > 0 && !state.cars[0].isBot && !state.cars[0].finished) {
     if (!state.cars[0].isAuto) {
       if (e.code === 'ArrowUp') state.cars[0].shiftUp();
       if (e.code === 'ArrowDown') state.cars[0].shiftDown();
@@ -78,4 +82,5 @@ window.toggleModeUI = toggleModeUI;
 // ========== INIT ==========
 resizeCanvas();
 populateTrackSelect();
+initPaddock({ tracks: F1_TRACKS, startGame, clearRecords, toggleModeUI });
 initTelemetryConsent();
