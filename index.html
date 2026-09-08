@@ -56,24 +56,30 @@
         </section>
 
         <section class="race-setup" aria-labelledby="setup-title">
-          <div class="setup-heading"><span class="eyebrow">PIT WALL / CONFIGURAÇÃO</span><span class="setup-number" aria-hidden="true">01</span><h2 id="setup-title">MONTE SEU GRID.</h2><p>Uma boa corrida começa aqui.</p></div>
+          <div class="setup-heading"><span class="eyebrow">PIT WALL / CONFIGURAÇÃO</span><span class="setup-number" aria-hidden="true">GT3</span><h2 id="setup-title">MONTE SEU GRID.</h2><p>Seu circuito. Seu ritmo. Sua corrida.</p></div>
           <div class="form-group track-field">
-            <label id="track-field-label" for="trackSelect"><span>01</span> CIRCUITO</label>
+            <label id="track-field-label" for="trackSelect">CIRCUITO <span class="config-label-note">24 destinos</span></label>
             <select id="trackSelect"></select>
             <button id="track-picker-open" class="track-picker-open" type="button" aria-haspopup="dialog" aria-controls="track-dialog" aria-expanded="false" hidden>
               <svg viewBox="0 0 320 200" aria-hidden="true"><path id="track-picker-path"></path></svg>
               <span class="track-picker-copy"><strong id="track-picker-name"></strong><small id="track-picker-detail"></small><span>EXPLORAR CIRCUITOS <b aria-hidden="true">↗</b></span></span>
             </button>
           </div>
-          <div class="setup-divider"><span>O SEU JEITO DE CORRER</span></div>
-          <div class="setup-fields">
-            <div class="form-group"><label for="gameMode">MODO DE JOGO</label><select id="gameMode"><option value="race">Corrida contra IA</option><option value="ghost">Contrarrelógio</option></select></div>
-            <div class="form-group"><label for="lapCount">VOLTAS <span class="lap-range">3 — 80</span></label><div class="lap-stepper"><button id="laps-less" type="button" aria-label="Diminuir voltas">−</button><input id="lapCount" type="number" min="3" max="80" step="1" value="3" inputmode="numeric" aria-describedby="lap-count-help"><button id="laps-more" type="button" aria-label="Aumentar voltas">+</button></div><span id="lap-count-help" class="sr-only">Escolha de 3 a 80 voltas.</span></div>
+          <div class="config-section">
+            <div class="form-group"><label for="gameMode">FORMATO DA CORRIDA</label><select id="gameMode"><option value="race">Corrida contra IA</option><option value="ghost">Contrarrelógio</option></select></div>
+            <div class="form-group laps-field">
+              <div class="laps-heading"><div><label for="lapCount">DISTÂNCIA DA CORRIDA</label><span id="lap-distance">12,9 km de corrida</span></div><div class="lap-stepper"><button id="laps-less" type="button" aria-label="Diminuir voltas">−</button><div class="lap-value"><input id="lapCount" type="number" min="3" max="80" step="1" value="3" inputmode="numeric" aria-describedby="lap-count-help"><span>VOLTAS</span></div><button id="laps-more" type="button" aria-label="Aumentar voltas">+</button></div></div>
+              <label for="lapRange" class="sr-only">Ajustar número de voltas</label><input id="lapRange" type="range" min="3" max="80" step="1" value="3" aria-describedby="lap-count-help">
+              <div class="lap-presets" role="group" aria-label="Escolhas rápidas de voltas"><button type="button" data-laps="3">3</button><button type="button" data-laps="10">10</button><button type="button" data-laps="20">20</button><button type="button" data-laps="40">40</button><button type="button" data-laps="80">80</button></div>
+              <span id="lap-count-help" class="sr-only">Escolha de 3 a 80 voltas, digitando ou ajustando a barra.</span>
+            </div>
+          </div>
+          <div class="setup-fields config-driving">
             <div class="form-group"><label for="trackCondition">CONDIÇÃO</label><select id="trackCondition"><option value="dry" selected>Seca / Slicks</option><option value="wet">Molhada</option></select></div>
             <div class="form-group"><label for="transMode">TRANSMISSÃO</label><select id="transMode"><option value="auto">Automática</option><option value="manual" selected>Manual</option></select></div>
           </div>
-          <div id="botOptionsGroup"><div class="setup-fields">
-            <div class="form-group"><label for="botCount">ADVERSÁRIOS</label><select id="botCount"><option value="1">1 piloto</option><option value="3">3 pilotos</option><option value="19" selected>19 pilotos</option></select></div>
+          <div id="botOptionsGroup"><div class="config-section config-opponents">
+            <div class="form-group"><label for="botCount">ADVERSÁRIOS <span class="config-label-note">Você + o grid</span></label><select id="botCount"><option value="1">1 piloto</option><option value="3">3 pilotos</option><option value="19" selected>19 pilotos</option></select></div>
             <div class="form-group"><label for="botDifficulty">DIFICULDADE</label><select id="botDifficulty"><option value="easy">Principiante</option><option value="medium">Veterano</option><option value="pro" selected>Profissional</option></select></div>
           </div></div>
           <p id="session-brief" class="session-brief" aria-live="polite">20 carros no grid · 3 voltas · Manual</p>

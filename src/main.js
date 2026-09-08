@@ -3,6 +3,7 @@ import './styles/paddock.css';
 import './styles/trackPicker.css';
 import './styles/race.css';
 import './styles/menus.css';
+import './styles/raceSetup.css';
 import { initSessionControls } from './sessionControls.js';
 import { initRecordsView } from './recordsView.js';
 import { initMenuSelects } from './menuSelect.js';

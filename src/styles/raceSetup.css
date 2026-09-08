@@ -1,0 +1,109 @@
+/* Race setup: readable choices, deliberate spacing and shared control states. */
+#menu .race-setup { padding: 25px; border: 1px solid #354050; border-top: 3px solid var(--red); border-radius: 6px; background: #161d28; box-shadow: 0 16px 40px #05090f33; }
+#menu .setup-heading { margin-bottom: 18px; }
+#menu .setup-heading h2 { font-size: 30px; margin: 11px 0 8px; }
+#menu .setup-heading p { color: #9eafc5; font-size: 12px; }
+#menu .setup-number { top: 0; font-size: 18px; font-style: italic; color: #687d9e; letter-spacing: 1px; }
+#menu .race-setup label:not(.sr-only) { display: flex; justify-content: space-between; align-items: center; font: 650 10px/1.4 'Segoe UI', sans-serif; letter-spacing: 1.05px; color: #b4c1d3; margin-bottom: 10px; }
+#menu .race-setup label .config-label-note { margin: 0; color: #8295af; font: 11px 'Segoe UI', sans-serif; letter-spacing: 0; }
+#menu .track-picker-open { position: relative; min-height: 83px; padding: 13px 16px; gap: 17px; border: 1px solid #475b7d; border-radius: 5px; background: #202c3e; box-shadow: inset 3px 0 #6e9fff; }
+#menu .track-picker-open:hover { background: #263750; border-color: #88b2ff; }
+#menu .track-picker-open svg { flex-basis: 74px; width: 74px; height: 54px; padding-right: 12px; border-right: 1px solid #405574; }
+#menu .track-picker-copy strong { font-size: 20px; }
+#menu .track-picker-copy small { font-size: 11px; color: #adbed7; }
+#menu .track-picker-copy > span { font-size: 9px; letter-spacing: .65px; color: #8fbcff; }
+.config-section { display: grid; gap: 15px; margin-top: 17px; }
+.config-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.config-choice { position: relative; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 15px 12px; border: 1px solid #364558; border-radius: 5px; background: #1d2736; color: #9aaec9; text-align: left; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.config-choice:hover { background: #25344a; border-color: #6885b0; }
+.config-choice[aria-checked="true"] { border-color: #709ef0; background: #263d61; color: #b7d1ff; box-shadow: inset 0 0 0 1px #709ef029; }
+.config-choice:focus-visible, .select-trigger:focus-visible { outline: 2px solid #bed5ff; outline-offset: 3px; }
+.config-icon { display: flex; width: 25px; height: 25px; flex: none; color: #839cbd; }
+.config-icon svg { width: 100%; height: 100%; }
+[aria-checked="true"] .config-icon { color: #a8caff; }
+.choice-copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.choice-copy strong { color: #dbe4f1; font: 650 13px/1.2 'Segoe UI', sans-serif; }
+.choice-copy small { color: #98abc5; font: 10px/1.4 'Segoe UI', sans-serif; }
+[aria-checked="true"] .choice-copy strong { color: white; }
+[aria-checked="true"] .choice-copy small { color: #b9cce8; }
+.choice-check { display: flex; align-items: center; justify-content: center; flex: none; width: 15px; height: 15px; border: 1px solid #5d7493; border-radius: 50%; color: transparent; font: 700 10px 'Segoe UI', sans-serif; }
+.config-choice > .choice-check { position: absolute; top: 7px; right: 7px; width: 11px; height: 11px; font-size: 8px; }
+[aria-checked="true"] > .choice-check, [aria-selected="true"] > .choice-check { color: #10203a; background: #a8caff; border-color: #a8caff; }
+.config-choices--cards .config-choice { min-height: 66px; padding-top: 12px; padding-bottom: 12px; padding-right: 18px; }
+.config-choices--cards .choice-copy small { max-width: 125px; }
+.config-driving { margin-top: 16px; gap: 16px; }
+.config-choices--compact { gap: 6px; }
+.config-choices--compact .config-choice { min-height: 66px; padding: 10px 7px 8px; flex-direction: column; justify-content: center; gap: 6px; text-align: center; }
+.config-choices--compact .config-icon { width: 21px; height: 21px; }
+.config-choices--compact .choice-copy { gap: 0; }
+.config-choices--compact .choice-copy strong { font-size: 11px; }
+.config-choices--compact .choice-copy small { display: none; }
+.config-choices--numbers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.config-choices--numbers .config-choice { justify-content: center; padding: 11px 8px; text-align: center; }
+.config-choices--numbers .choice-copy { flex-direction: row; align-items: center; gap: 8px; }
+.config-choices--numbers strong { font: 650 25px/1 var(--display); }
+.config-choices--numbers small { max-width: 42px; text-align: left; font-size: 10px; }
+#botOptionsGroup { margin-top: 16px; }
+.config-opponents { margin-top: 0; gap: 16px; }
+.menu-select { position: relative; min-width: 0; }
+.menu-select.is-open { z-index: 6; }
+.select-trigger { display: flex; width: 100%; align-items: center; gap: 15px; min-height: 67px; padding: 13px 15px; border: 1px solid #435775; border-radius: 5px; background: #202d41; color: #c6d8f3; text-align: left; cursor: pointer; box-shadow: none; }
+.select-trigger:hover { border-color: #87a9e0; background: #263651; }
+.select-trigger[aria-expanded="true"] { border-color: #91b8ff; background: #293f60; }
+.select-trigger .choice-copy { flex: 1; }
+.select-trigger .choice-copy strong { font-size: 14px; }
+.select-trigger .choice-copy small { font-size: 11px; }
+.select-arrow { display: flex; flex: none; align-items: center; justify-content: center; width: 27px; height: 27px; border-radius: 4px; border: 1px solid #526b90; background: #17243a; color: #a9caff; }
+.select-arrow svg { width: 19px; height: 19px; transition: transform .15s; }
+[aria-expanded="true"] .select-arrow svg { transform: rotate(180deg); }
+.level-bars { display: flex; align-items: end; justify-content: center; gap: 3px; width: 27px; height: 29px; flex: none; padding: 4px 0; }
+.level-bars i { width: 5px; height: 9px; background: #425270; border-radius: 1px; }
+.level-bars i:nth-child(2) { height: 15px; }
+.level-bars i:nth-child(3) { height: 21px; }
+.level-bars .lit { background: #79a9fa; }
+.level-bars .lit:last-child { background: #f8796e; }
+.select-options { position: absolute; left: 0; top: calc(100% + 7px); width: 100%; min-width: 0; max-width: none; padding: 6px; overflow-y: auto; overscroll-behavior: contain; background: #111b2a; border: 1px solid #6986b1; border-radius: 6px; box-shadow: 0 16px 42px #0009; scrollbar-color: #5b77a1 #111b2a; }
+.menu-select[data-side="above"] .select-options { top: auto; bottom: calc(100% + 7px); }
+.select-option { display: flex; gap: 14px; align-items: center; min-height: 70px; padding: 12px; border: 1px solid transparent; border-radius: 4px; white-space: normal; color: #d0def3; cursor: pointer; }
+.select-option .choice-copy { flex: 1; }
+.select-option:hover, .select-option.is-active { background: #223b60; border-color: #4f79b5; }
+.select-option[aria-selected="true"] { background: #1d3150; }
+.select-option[aria-selected="true"]::after { content: none; }
+.select-option.is-active[aria-selected="true"] { background: #2b4670; }
+.laps-field { padding: 12px 15px; border: 1px solid #384b66; border-radius: 5px; background: #182438; }
+.laps-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#menu .laps-heading label { margin-bottom: 7px; font-size: 9px; letter-spacing: .8px; }
+#lap-distance { color: #8da9d1; font: 11px 'Segoe UI', sans-serif; }
+.lap-stepper { display: flex; align-items: center; flex: none; gap: 4px; min-height: 43px; border: 0; background: none; overflow: visible; }
+.lap-stepper:focus-within { outline: none; }
+.lap-stepper button { display: flex; justify-content: center; align-items: center; width: 29px; height: 32px; border: 1px solid #4b6487; border-radius: 4px; background: #263b59; color: #c4dbff; font: 400 21px 'Segoe UI', sans-serif; cursor: pointer; }
+.lap-stepper button:hover { background: #395884; border-color: #7da4e0; }
+.lap-stepper button:disabled { opacity: .35; cursor: default; }
+.lap-value { width: 48px; display: flex; flex-direction: column; align-items: center; }
+#lapCount { width: 48px; border: 0; border-radius: 3px; background: transparent; padding: 0; color: white; text-align: center; font: 650 29px/1 var(--display); appearance: textfield; -moz-appearance: textfield; }
+#lapCount:focus-visible { outline: 2px solid #a8caff; outline-offset: 1px; background: #2b4264; }
+#lapCount::-webkit-inner-spin-button, #lapCount::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.lap-value > span { color: #a6b9d4; font: 7px 'Segoe UI', sans-serif; letter-spacing: 1.1px; margin-top: 3px; }
+#lapRange { --lap-fill: 0%; appearance: none; display: block; width: 100%; height: 24px; margin: 5px 0 3px; border: 0; border-radius: 3px; background: linear-gradient(to right, #79aaff var(--lap-fill), #364964 var(--lap-fill)) center / 100% 5px no-repeat; cursor: pointer; }
+#lapRange::-webkit-slider-thumb { appearance: none; width: 15px; height: 15px; border-radius: 50%; border: 3px solid #dae7ff; background: #477fe0; box-shadow: 0 0 0 4px #79aaff19; }
+#lapRange::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: 3px solid #dae7ff; background: #477fe0; }
+#lapRange:focus-visible { outline: 2px solid #b2ceff; outline-offset: 6px; }
+.lap-presets { display: flex; justify-content: space-between; gap: 5px; }
+.lap-presets button { width: 36px; min-height: 24px; border: 1px solid transparent; border-radius: 3px; padding: 3px 7px; background: none; color: #a1b4d1; font: 11px Consolas, monospace; cursor: pointer; }
+.lap-presets button:hover { background: #263e62; color: #e2edff; }
+.lap-presets button[aria-pressed="true"] { color: #e2edff; border-color: #608dd5; background: #294771; }
+#menu .race-setup .session-brief { font-size: 11px; line-height: 1.6; margin-top: 16px; padding-top: 12px; }
+#menu .race-setup .start-race { border-radius: 4px; padding: 16px 18px; margin-top: 12px; }
+#menu .race-setup .start-race b { font-size: 23px; }
+#menu .race-setup .start-race small { color: #4c1512; font-size: 8px; }
+#menu .race-setup .telemetry-consent { margin-top: 18px; padding-top: 15px; }
+.race-setup button:disabled { cursor: default; }
+.race-setup #start-race:disabled { cursor: wait; }
+#track-search { border-radius: 5px; min-height: 48px; border-color: #536d95; background-color: #1b293e; padding: 0 16px; }
+#track-dialog .track-filters button { height: 48px; border-radius: 5px; }
+@media (min-width: 801px) { .paddock-body { grid-template-columns: minmax(0, 1fr) 440px; align-items: start; } .race-editorial { position: sticky; top: 24px; } .race-hero { min-height: 420px; } }
+@media (min-width: 1450px) { .paddock-body { grid-template-columns: minmax(0, 1fr) 470px; } .race-hero { min-height: 480px; } }
+@media (min-width: 801px) and (max-width: 1150px) { .paddock-body { grid-template-columns: minmax(0, 1fr) 420px; gap: 22px; } #menu .race-setup { padding: 21px; } .circuit-card { grid-template-columns: 1fr; } .race-hero { min-height: 400px; } .circuit-copy { padding-bottom: 0; } .circuit-map svg { height: 130px; } }
+@media (max-width: 800px) { #menu .race-setup { padding: 24px; } .config-choice { min-height: 78px; } .config-choices--numbers .config-choice { min-height: 56px; } }
+@media (max-width: 480px) { #menu .race-setup { padding: 19px 16px; } #menu .setup-heading h2 { font-size: 29px; } .config-choices--cards .config-choice { flex-direction: column; align-items: start; gap: 9px; padding: 13px; min-height: 104px; } .config-choices--cards .choice-copy strong { font-size: 12px; } .config-choices--cards .choice-copy small { font-size: 10px; } .config-driving { gap: 12px; } .config-choices--compact .config-choice { padding-left: 4px; padding-right: 4px; } .config-choices--compact .choice-copy strong { font-size: 10px; } .config-choices--numbers .choice-copy { flex-direction: column; gap: 4px; } .config-choices--numbers small { max-width: none; text-align: center; } .laps-field { padding: 12px; } .laps-heading { gap: 5px; } #menu .laps-heading label { font-size: 8px; } #lap-distance { font-size: 10px; } .lap-stepper { gap: 1px; } .lap-stepper button { width: 25px; } .select-trigger { gap: 12px; padding: 12px; } .select-trigger .choice-copy small { font-size: 10px; } .select-option { gap: 11px; } }
+@media (prefers-reduced-motion: reduce) { .config-choice, .select-arrow svg { transition: none; } }

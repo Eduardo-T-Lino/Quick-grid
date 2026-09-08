@@ -40,6 +40,12 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
     byId('circuit-start').setAttribute('cx', preview.start.x);
     byId('circuit-start').setAttribute('cy', preview.start.y);
     byId('circuit-svg').setAttribute('aria-label', `Traçado de ${track.name}`);
+    updateDistance();
+  }
+  function updateDistance() {
+    const track = tracks.find(item => item.id === Number(selected('trackSelect')));
+    const distance = (track?.lengthMeters || 0) * normalizeLaps(selected('lapCount')) / 1000;
+    byId('lap-distance').textContent = `${distance.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km de corrida`;
   }
   function updateSession() {
     toggleModeUI();
@@ -51,6 +57,7 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
     byId('circuit-weather').style.color = selected('trackCondition') === 'wet' ? '#8fb5ff' : '';
     byId('botCount').disabled = ghost;
     byId('botDifficulty').disabled = ghost;
+    updateDistance();
   }
   byId('trackSelect').addEventListener('change', updateTrack);
   for (const id of ['gameMode', 'botCount', 'lapCount', 'transMode', 'trackCondition', 'botDifficulty'])
@@ -60,11 +67,17 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
     laps.value = normalizeLaps(value);
     byId('laps-less').disabled = Number(laps.value) <= 3;
     byId('laps-more').disabled = Number(laps.value) >= 80;
+    byId('lapRange').value = laps.value;
+    byId('lapRange').style.setProperty('--lap-fill', `${(Number(laps.value) - 3) / 77 * 100}%`);
+    byId('lapRange').setAttribute('aria-valuetext', `${laps.value} voltas`);
+    document.querySelectorAll('[data-laps]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.laps === laps.value)));
     updateSession();
   }
   laps.addEventListener('change', () => setLaps(laps.value));
   byId('laps-less').addEventListener('click', () => setLaps(Number(laps.value) - 1));
   byId('laps-more').addEventListener('click', () => setLaps(Number(laps.value) + 1));
+  byId('lapRange').addEventListener('input', event => setLaps(event.target.value));
+  document.querySelectorAll('[data-laps]').forEach(button => button.addEventListener('click', () => setLaps(button.dataset.laps)));
   setLaps(laps.value);
 
   const dialog = byId('controls-dialog');
@@ -85,12 +98,12 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
   byId('start-race').addEventListener('click', async () => {
     const button = byId('start-race');
     if (button.disabled) return;
+    setLaps(laps.value);
     button.disabled = true;
     button.setAttribute('aria-busy', 'true');
     byId('start-label').textContent = 'PREPARANDO O GRID';
     byId('start-status').textContent = 'Preparando circuito e pilotos…';
     try {
-      setLaps(laps.value);
       await startGame();
       byId('start-status').textContent = '';
       byId('gameCanvas').focus({ preventScroll: true });

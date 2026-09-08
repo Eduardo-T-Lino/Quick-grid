@@ -16,12 +16,26 @@
   const recordKey = 'cr_f1_t21_l3_best_lap_time', saved = localStorage.getItem(recordKey);
   try {
     assert(!onlineUploader.consentEnabled, 'Verification uses an isolated browser with online telemetry disabled');
-    byId('gameMode-trigger').click();
-    assert(!byId('gameMode-options').hidden, 'Styled dropdown opens');
+    assert(byId('gameMode-option-0').getAttribute('aria-checked') === 'true', 'Race format uses visible selected cards');
     byId('gameMode-option-1').click();
-    assert(byId('gameMode').value === 'ghost' && byId('botCount-trigger').disabled, 'Dropdown commits native value and disables ghost opponents');
-    byId('gameMode-trigger').click(); byId('gameMode-option-0').click();
-    assert(!byId('botCount-trigger').disabled, 'Race mode restores opponent controls');
+    assert(byId('gameMode').value === 'ghost' && byId('botCount-option-2').disabled, 'Card commits native value and disables ghost opponents');
+    byId('gameMode-option-0').click();
+    assert(!byId('botCount-option-2').disabled, 'Race mode restores opponent controls');
+    byId('transMode-option-1').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+    assert(byId('transMode').value === 'auto' && byId('transMode-option-0').getAttribute('aria-checked') === 'true', 'Keyboard selects transmission and updates its visual state');
+    byId('transMode-option-1').click();
+    byId('trackCondition-option-1').click();
+    assert(byId('trackCondition').value === 'wet' && byId('circuit-weather').textContent === 'CHUVA', 'Weather cards update the circuit preview');
+    byId('trackCondition-option-0').click();
+    byId('botDifficulty-trigger').click();
+    assert(!byId('botDifficulty-options').hidden && byId('botDifficulty-option-0').textContent.includes('começar'), 'Difficulty menu shows explanatory options');
+    byId('botDifficulty-option-1').click();
+    assert(byId('botDifficulty').value === 'medium' && byId('botDifficulty-trigger-value').textContent === 'Veterano', 'Difficulty commits the displayed selection');
+    byId('botDifficulty-trigger').click(); byId('botDifficulty-option-2').click();
+    document.querySelector('[data-laps="20"]').click();
+    assert(byId('lapCount').value === '20' && byId('lapRange').value === '20' && byId('session-brief').textContent.includes('20 voltas'), 'Lap presets sync the input, slider and session');
+    byId('lapRange').value = '37'; byId('lapRange').dispatchEvent(new Event('input', { bubbles: true }));
+    assert(byId('lapCount').value === '37' && !document.querySelector('[data-laps][aria-pressed="true"]') && byId('lap-distance').textContent.includes('159,4'), 'Slider supports arbitrary laps and updates race distance');
     for (const [value, expected] of [['1', '3'], ['81', '80'], ['17', '17']]) {
       byId('lapCount').value = value; byId('lapCount').dispatchEvent(new Event('change', { bubbles: true }));
       assert(byId('lapCount').value === expected, `Lap input ${value} resolves to ${expected}`);
