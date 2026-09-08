@@ -144,14 +144,14 @@ export function drawGhostCar(x, y, angle, color) {
   ctx.restore();
 }
 
-export function drawGhosts() {
+export function drawGhosts(advance = true) {
   if (state.gameMode !== 'ghost') return;
 
   if (state.bestLapPath && state.bestLapPath.length > 0) {
     let fLap = state.bestLapPath[state.ghostLapFrameIndex];
     if (fLap) {
       drawGhostCar(fLap.x, fLap.y, fLap.a, '#00ffff');
-      state.ghostLapFrameIndex = (state.ghostLapFrameIndex + 1) % state.bestLapPath.length;
+      if (advance) state.ghostLapFrameIndex = (state.ghostLapFrameIndex + 1) % state.bestLapPath.length;
     }
   }
 
@@ -159,7 +159,7 @@ export function drawGhosts() {
     let fRace = state.bestRacePath[state.ghostRaceFrameIndex];
     if (fRace) {
       drawGhostCar(fRace.x, fRace.y, fRace.a, '#ffd700');
-      state.ghostRaceFrameIndex++;
+      if (advance) state.ghostRaceFrameIndex++;
     }
   }
 }

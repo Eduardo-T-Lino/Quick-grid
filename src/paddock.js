@@ -1,4 +1,5 @@
 import { initTrackPicker, trackDisplayName } from './trackPicker.js';
+import { normalizeLaps } from './raceSettings.js';
 
 // Presentation-only controller. Existing select IDs/values remain the game's source of truth.
 export function createTrackPreview(track) {
@@ -54,6 +55,17 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
   byId('trackSelect').addEventListener('change', updateTrack);
   for (const id of ['gameMode', 'botCount', 'lapCount', 'transMode', 'trackCondition', 'botDifficulty'])
     byId(id).addEventListener('change', updateSession);
+  const laps = byId('lapCount');
+  function setLaps(value) {
+    laps.value = normalizeLaps(value);
+    byId('laps-less').disabled = Number(laps.value) <= 3;
+    byId('laps-more').disabled = Number(laps.value) >= 80;
+    updateSession();
+  }
+  laps.addEventListener('change', () => setLaps(laps.value));
+  byId('laps-less').addEventListener('click', () => setLaps(Number(laps.value) - 1));
+  byId('laps-more').addEventListener('click', () => setLaps(Number(laps.value) + 1));
+  setLaps(laps.value);
 
   const dialog = byId('controls-dialog');
   byId('controls-open').addEventListener('click', () => dialog.showModal());
@@ -78,6 +90,7 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
     byId('start-label').textContent = 'PREPARANDO O GRID';
     byId('start-status').textContent = 'Preparando circuito e pilotos…';
     try {
+      setLaps(laps.value);
       await startGame();
       byId('start-status').textContent = '';
       byId('gameCanvas').focus({ preventScroll: true });

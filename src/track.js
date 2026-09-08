@@ -9,6 +9,7 @@ import { MAX_INTERNAL_SPEED } from './constants.js';
 import { getVisibleTrackRenderPaths, getRenderBounds, withinRenderBounds } from './renderGeometry.js';
 import { getTrackMaterials } from './trackAppearance.js';
 import { TrackTileCache } from './trackTileCache.js';
+import { drawTrackScenery } from './trackScenery.js';
 
 // Dicionário de Nomes Oficiais das Curvas F1 por Pista
 const TRACK_SECTORS = {
@@ -300,6 +301,7 @@ function paintTrack(ctx, detailBounds, materials) {
   // Ground and road materials are paint only, anchored in the unchanged world space.
   ctx.fillStyle = materials.grass;
   ctx.fillRect(detailBounds.minX, detailBounds.minY, detailBounds.maxX - detailBounds.minX, detailBounds.maxY - detailBounds.minY);
+  drawTrackScenery(ctx, trackPath, detailBounds, trackWidth, escapeType === 'walls' || escapeType === 'barriers');
 
   // 1. ÁREAS DE ESCAPE EXTERNAS (Caixas de Brita e Asfalto de Segurança)
 
@@ -334,6 +336,11 @@ function paintTrack(ctx, detailBounds, materials) {
     ctx.lineWidth = trackWidth + 6.5;
     ctx.stroke(paths.center);
 
+    // Painted drainage margin beside the existing kerbs, baked into world tiles.
+    ctx.strokeStyle = '#486c69';
+    ctx.lineWidth = trackWidth + 4.2;
+    ctx.stroke(paths.center);
+
   }
 
   // 2. ZEBRAS 3D AUTÊNTICAS (KERBS) NAS ENTRADAS E SAÍDAS DE CURVA
@@ -356,6 +363,8 @@ function paintTrack(ctx, detailBounds, materials) {
       // Relevo chanfrado escuro
       ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
       ctx.fillRect(-kerbWidth / 2, 0.5, kerbWidth, 1.0);
+      ctx.fillStyle = '#ffffff38';
+      ctx.fillRect(-kerbWidth / 2, -1.4, kerbWidth, .22);
       ctx.restore();
     }
   }
@@ -382,6 +391,19 @@ function paintTrack(ctx, detailBounds, materials) {
   ctx.lineWidth = trackWidth * 0.38;
   ctx.strokeStyle = 'rgba(10, 11, 14, 0.50)';
   ctx.stroke(paths.center);
+  ctx.restore();
+
+  // Fine rubber streaks along the already sampled road direction; no new geometry.
+  ctx.save();
+  ctx.strokeStyle = '#080e1424'; ctx.lineWidth = .13;
+  for (let i = 0; i < totalPoints; i += 11) {
+    const p = trackPath[i];
+    if (!withinRenderBounds(p, detailBounds) || p.curvature < .002) continue;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+    ctx.beginPath();
+    for (const offset of [-2.8, -1.4, 1.4, 2.8]) { ctx.moveTo(-2.8, offset); ctx.lineTo(2.8, offset + .12); }
+    ctx.stroke(); ctx.restore();
+  }
   ctx.restore();
 
   // 5. SOMBREADO DE RELEVO E ELEVAÇÃO 3D (Subidas iluminadas, descidas sombreadas)

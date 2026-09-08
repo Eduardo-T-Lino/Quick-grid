@@ -2,6 +2,10 @@ import './styles/main.css';
 import './styles/paddock.css';
 import './styles/trackPicker.css';
 import './styles/race.css';
+import './styles/menus.css';
+import { initSessionControls } from './sessionControls.js';
+import { initRecordsView } from './recordsView.js';
+import { initMenuSelects } from './menuSelect.js';
 import { initPaddock } from './paddock.js';
 import { F1_TRACKS } from './f1Tracks.js';
 import { state, resizeCanvas, startGame, backToMenu, clearRecords, toggleModeUI } from './game.js';
@@ -61,6 +65,8 @@ function populateTrackSelect() {
 
 // ========== EVENT LISTENERS ==========
 window.addEventListener('keydown', e => {
+  if (e.target.closest?.('input, select, textarea, [contenteditable="true"]') || state.isPaused || document.querySelector('dialog[open]')) return;
+  if (state.isRunning && ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
   state.keys[e.code] = true;
   if (state.isRunning && state.racePhase === 'racing' && state.cars.length > 0 && !state.cars[0].isBot && !state.cars[0].finished) {
     if (!state.cars[0].isAuto) {
@@ -83,4 +89,7 @@ window.toggleModeUI = toggleModeUI;
 resizeCanvas();
 populateTrackSelect();
 initPaddock({ tracks: F1_TRACKS, startGame, clearRecords, toggleModeUI });
+initMenuSelects();
+initRecordsView(F1_TRACKS);
+initSessionControls();
 initTelemetryConsent();

@@ -22,7 +22,11 @@
         </div>
       </header>
 
-      <div class="paddock-body">
+      <nav class="paddock-tabs" role="tablist" aria-label="Paddock">
+        <button id="tab-race" type="button" role="tab" aria-selected="true" aria-controls="race-panel"><span>01</span> CORRIDA RÁPIDA</button>
+        <button id="tab-records" type="button" role="tab" aria-selected="false" aria-controls="records-panel" tabindex="-1"><span>02</span> RECORDES</button>
+      </nav>
+      <div id="race-panel" class="paddock-body" role="tabpanel" aria-labelledby="tab-race">
         <section class="race-editorial" aria-labelledby="hero-title">
           <div class="race-hero">
             <div class="hero-photo" aria-hidden="true"></div>
@@ -64,7 +68,7 @@
           <div class="setup-divider"><span>O SEU JEITO DE CORRER</span></div>
           <div class="setup-fields">
             <div class="form-group"><label for="gameMode">MODO DE JOGO</label><select id="gameMode"><option value="race">Corrida contra IA</option><option value="ghost">Contrarrelógio</option></select></div>
-            <div class="form-group"><label for="lapCount">VOLTAS</label><select id="lapCount"><option value="1">1 volta · Sprint</option><option value="2">2 voltas</option><option value="3" selected>3 voltas</option><option value="40">40 voltas · Mini-GP</option></select></div>
+            <div class="form-group"><label for="lapCount">VOLTAS <span class="lap-range">3 — 80</span></label><div class="lap-stepper"><button id="laps-less" type="button" aria-label="Diminuir voltas">−</button><input id="lapCount" type="number" min="3" max="80" step="1" value="3" inputmode="numeric" aria-describedby="lap-count-help"><button id="laps-more" type="button" aria-label="Aumentar voltas">+</button></div><span id="lap-count-help" class="sr-only">Escolha de 3 a 80 voltas.</span></div>
             <div class="form-group"><label for="trackCondition">CONDIÇÃO</label><select id="trackCondition"><option value="dry" selected>Seca / Slicks</option><option value="wet">Molhada</option></select></div>
             <div class="form-group"><label for="transMode">TRANSMISSÃO</label><select id="transMode"><option value="auto">Automática</option><option value="manual" selected>Manual</option></select></div>
           </div>
@@ -78,6 +82,14 @@
           <details class="telemetry-consent" id="telemetry-consent"><summary><span class="telemetry-icon" aria-hidden="true">▥</span> Telemetria de pilotagem <span>OPCIONAL</span></summary><div class="consent-content"><p>Permitir envio anônimo de dados de pilotagem para ajudar a melhorar os bots. Você pode correr sem permitir.</p><div class="consent-actions"><button type="button" id="consent-allow">Permitir</button><button type="button" id="consent-deny">Não permitir</button></div><small id="consent-status" aria-live="polite">Telemetria online desativada.</small></div></details>
         </section>
       </div>
+
+      <section id="records-panel" class="records-panel" role="tabpanel" aria-labelledby="tab-records" hidden>
+        <div class="records-heading"><div><span class="eyebrow"><span class="blue-marker"></span> SEU HISTÓRICO NO ASFALTO</span><h2>CADA MILÉSIMO CONTA.</h2><p>Suas melhores voltas e corridas, circuito por circuito.</p></div><span class="records-local">SALVOS NESTE NAVEGADOR</span></div>
+        <div class="records-summary"><div><strong id="records-count">0</strong><span>CIRCUITOS MARCADOS</span></div><div><strong id="records-sessions">0</strong><span>CONFIGURAÇÕES COM RECORDES</span></div><p>Tempos separados por circuito e número de voltas.<br>Recordes anteriores de 1 e 2 voltas continuam disponíveis.</p></div>
+        <div class="records-toolbar"><label for="records-search">BUSCAR CIRCUITO<input id="records-search" type="search" placeholder="Nome ou cidade…" autocomplete="off"></label><span id="records-result" role="status"></span></div>
+        <div class="records-table-wrap"><table id="records-table" hidden><caption class="sr-only">Melhores tempos salvos localmente</caption><thead><tr><th scope="col">CIRCUITO</th><th scope="col">DISTÂNCIA</th><th scope="col">MELHOR VOLTA</th><th scope="col">MELHOR CORRIDA</th></tr></thead><tbody id="records-rows"></tbody></table></div>
+        <div id="records-empty" class="records-empty"><span class="records-flag" aria-hidden="true"></span><h3 id="records-empty-title">SEU PRIMEIRO TEMPO VEM AÍ.</h3><p id="records-empty-description">Complete uma volta para marcar seu lugar aqui.</p><button id="records-race" type="button" class="menu-primary">PREPARAR UMA CORRIDA <span aria-hidden="true">↗</span></button></div>
+      </section>
 
       <footer class="paddock-footer"><div class="keyboard-hints"><span><kbd>W</kbd><kbd>S</kbd> PEDAL</span><span><kbd>A</kbd><kbd>D</kbd> DIREÇÃO</span><span><kbd>↑</kbd><kbd>↓</kbd> MARCHAS</span></div><div class="footer-actions"><span>FEITO PARA QUEM GOSTA DE CORRER.</span><button type="button" id="clear-records" class="quiet-button">Limpar recordes <span aria-hidden="true">↗</span></button></div></footer>
     </div>
@@ -101,6 +113,22 @@
     </div>
     <footer class="track-dialog-footer"><span><i class="tiny-stripes" aria-hidden="true"></i> 24 DESTINOS. A MESMA VONTADE DE CORRER.</span><span><kbd>Esc</kbd> VOLTAR</span></footer>
   </dialog>
+
+  <dialog id="session-dialog" class="session-dialog" aria-labelledby="session-dialog-title" aria-describedby="session-dialog-description">
+    <div class="session-dialog-top"><span id="session-dialog-label" class="eyebrow">RACE CONTROL / PAUSA</span><button id="session-close" class="session-close" type="button" aria-label="Fechar menu">✕</button></div>
+    <h2 id="session-dialog-title">RESPIRA. A PISTA ESPERA.</h2>
+    <p id="session-dialog-description">Carros e cronômetros estão pausados. Retome quando estiver pronto.</p>
+    <div class="session-race-info"><span id="session-track"></span><strong id="session-progress"></strong></div>
+    <div class="session-actions">
+      <button id="session-resume" class="menu-primary" type="button">VOLTAR À PISTA <kbd>Esc</kbd></button>
+      <button id="session-restart" class="menu-secondary" type="button">Reiniciar corrida <kbd>R</kbd></button>
+      <button id="session-exit" class="menu-secondary" type="button">Voltar ao paddock <span aria-hidden="true">↗</span></button>
+      <button id="session-confirm" class="menu-primary" type="button" hidden>REINICIAR CORRIDA <span aria-hidden="true">↗</span></button>
+      <button id="session-cancel" class="menu-secondary" type="button" hidden>Continuar corrida atual <kbd>Esc</kbd></button>
+    </div>
+    <p id="session-message" role="status"></p>
+  </dialog>
+  <div id="race-shortcuts" class="race-shortcuts" hidden><button id="pause-race" type="button"><kbd>Esc</kbd> PAUSA</button><button id="restart-race" type="button"><kbd>R</kbd> REINICIAR</button></div>
 
   <div id="win-screen">
     <div class="eyebrow">QUICK-GRID / RESULTADO FINAL</div>

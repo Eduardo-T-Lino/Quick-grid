@@ -5,7 +5,6 @@ import {
   MAX_INTERNAL_SPEED, MAX_SPEED_KMH, NUM_CHECKPOINTS,
   FORCA_TRACAO, RESISTENCIA_AR, TAXA_SUAVIZACAO_ACEL,
   TAXA_SUAVIZACAO_FREIO, FORCA_FREIO_MAX,
-  VELOCIDADE_ESTERCO_BASE, TAXA_ESTERCO_SUBIDA, TAXA_ESTERCO_RETORNO,
   GEAR_SPEEDS, GEAR_POWER, GT3_WHEELBASE, GT3_BASE_GRIP, GT3_AERO_GRIP,
   GT3_TC_SLIP_LIMIT, GT3_ABS_SLIP_LIMIT
 } from './constants.js';
@@ -13,6 +12,7 @@ import { Particle, SparkParticle } from './particles.js';
 import { state } from './game.js';
 import { BotBrain } from './ai.js';
 import { drawCarAppearance } from './carAppearance.js';
+import { playerSteering } from './raceSettings.js';
 
 export class Car {
   constructor(color, name, isBot, index, isAuto = true) {
@@ -118,7 +118,9 @@ export class Car {
       let projX = p1.x + t * segX;
       let projY = p1.y + t * segY;
 
-      let dist = Math.hypot(this.x - projX, this.y - projY);
+      // Compare squared distances; take one square root after finding the winner.
+      let dx = this.x - projX, dy = this.y - projY;
+      let dist = dx * dx + dy * dy;
       if (dist < minPerpDist) {
         minPerpDist = dist;
         bestIdx = t > 0.5 ? idx2 : idx1;
@@ -127,7 +129,7 @@ export class Car {
       }
     }
 
-    return { lateralDist: minPerpDist, closestIdx: bestIdx, segmentIdx: bestSegIdx, segmentT: bestSegT };
+    return { lateralDist: Math.sqrt(minPerpDist), closestIdx: bestIdx, segmentIdx: bestSegIdx, segmentT: bestSegT };
   }
 
   update() {
@@ -280,13 +282,7 @@ export class Car {
       if (keys['KeyA'] || keys['ArrowLeft']) steerTarget = -1.0;
       if (keys['KeyD'] || keys['ArrowRight']) steerTarget = 1.0;
 
-      if (steerTarget !== 0) {
-        let diff = steerTarget - this.steerAmount;
-        this.steerAmount += diff * TAXA_ESTERCO_SUBIDA;
-      } else {
-        this.steerAmount *= (1.0 - TAXA_ESTERCO_RETORNO);
-        if (Math.abs(this.steerAmount) < 0.01) this.steerAmount = 0;
-      }
+      this.steerAmount = playerSteering(this.steerAmount, steerTarget, speed / MAX_INTERNAL_SPEED);
 
       this.steerAmount = Math.max(-1, Math.min(1, this.steerAmount));
       steerInput = this.steerAmount;

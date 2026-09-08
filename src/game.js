@@ -13,6 +13,7 @@ import { getRenderBounds, withinRenderBounds } from './renderGeometry.js';
 import { raceStart, renderStartLights } from './raceStart.js';
 import { getCarSprite } from './carAppearance.js';
 import { renderPoses } from './renderPose.js';
+import { normalizeLaps, excludePauseTime } from './raceSettings.js';
 
 // ========== SHARED GAME STATE ==========
 export const state = {
@@ -29,6 +30,8 @@ export const state = {
   selectedTrackData: F1_TRACKS.find(t => t.id === 21) || F1_TRACKS[0],
   botDifficulty: 'pro',
   isRunning: false,
+  isPaused: false,
+  pausedAt: null,
   racePhase: 'idle',
   raceFinished: false,
   gameMode: 'race',
@@ -53,6 +56,7 @@ export const state = {
     if (!this.firstFinishedCar && this.gameMode !== 'ghost') {
       this.firstFinishedCar = true;
       this.timerSeconds = 45;
+      this.finishDeadline = performance.now() + 45000;
       if (typeof document !== 'undefined') {
         const timerBox = document.getElementById('timer-box');
         if (timerBox) {
@@ -62,7 +66,8 @@ export const state = {
       }
 
       this.timerInterval = setInterval(() => {
-        this.timerSeconds--;
+        if (this.isPaused || !this.isRunning) return;
+        this.timerSeconds = Math.max(0, Math.ceil((this.finishDeadline - performance.now()) / 1000));
         if (typeof document !== 'undefined') {
           const timerBox = document.getElementById('timer-box');
           if (timerBox) {
@@ -103,8 +108,10 @@ async function loadRecords(trackId, laps) {
     const sLapPath = localStorage.getItem(`cr_f1_t${trackId}_l${laps}_best_lap_path`);
     const sRaceTime = localStorage.getItem(`cr_f1_t${trackId}_l${laps}_best_race_time`);
     const sRacePath = localStorage.getItem(`cr_f1_t${trackId}_l${laps}_best_race_path`);
-    if (sLapTime && sLapPath) { state.bestLapTime = parseFloat(sLapTime); state.bestLapPath = JSON.parse(sLapPath); }
-    if (sRaceTime && sRacePath) { state.bestRaceTime = parseFloat(sRaceTime); state.bestRacePath = JSON.parse(sRacePath); }
+    if (Number(sLapTime) > 0 && Number.isFinite(Number(sLapTime))) state.bestLapTime = Number(sLapTime);
+    if (Number(sRaceTime) > 0 && Number.isFinite(Number(sRaceTime))) state.bestRaceTime = Number(sRaceTime);
+    try { state.bestLapPath = sLapPath ? JSON.parse(sLapPath) : []; } catch {}
+    try { state.bestRacePath = sRacePath ? JSON.parse(sRacePath) : []; } catch {}
   } catch (e) { }
 }
 
@@ -205,6 +212,7 @@ function finishRaceByTimeout() {
 export function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  if (state.isRunning && state.isPaused) gameLoop(performance.now(), true);
 }
 
 // ========== MENU ACTIONS ==========
@@ -220,7 +228,7 @@ export function clearRecords() {
     }
     state.bestLapTime = null; state.bestLapPath = [];
     state.bestRaceTime = null; state.bestRacePath = [];
-    alert('Recordes limpos com sucesso!');
+    window.dispatchEvent(new Event('quick-grid:records-cleared'));
   } catch (e) { }
 }
 
@@ -231,6 +239,10 @@ export function backToMenu() {
   raceStart.reset();
   renderStartLights();
   state.racePhase = 'idle';
+  state.isPaused = false;
+  state.pausedAt = null;
+  state.keys = {};
+  state.finishDeadline = null;
   if (mlTelemetry.enabled) mlTelemetry.stop();
   if (state.timerInterval) clearInterval(state.timerInterval);
   document.getElementById('timer-box').style.display = 'none';
@@ -241,26 +253,58 @@ export function backToMenu() {
   document.getElementById('win-screen').style.display = 'none';
   document.getElementById('menu').style.display = 'block';
   state.isRunning = false;
+  document.getElementById('race-shortcuts').hidden = true;
+  window.dispatchEvent(new Event('quick-grid:menu'));
 }
 
-export async function startGame() {
+export function pauseGame(now = performance.now()) {
+  if (!state.isRunning || state.isPaused || state.raceFinished) return false;
+  state.isPaused = true; state.pausedAt = now; state.keys = {};
+  cancelAnimationFrame(animationFrameId); animationFrameId = null;
+  return true;
+}
+
+export function resumeGame(now = performance.now()) {
+  if (!state.isRunning || !state.isPaused) return false;
+  excludePauseTime(state, raceStart, mlTelemetry, Math.max(0, now - state.pausedAt));
+  state.isPaused = false; state.pausedAt = null; state.keys = {};
+  lastFrameTime = now;
+  telemetryPerformance.lastFrameTimestamp = null;
+  animationFrameId = requestAnimationFrame(gameLoop);
+  return true;
+}
+
+let lastRaceSettings;
+export async function restartGame() {
+  if (!lastRaceSettings) return;
+  const settings = { ...lastRaceSettings };
+  backToMenu();
+  document.getElementById('menu').style.display = 'none';
+  await startGame(settings);
+}
+
+export async function startGame(settings) {
   if (state.isRunning || state.racePhase === 'loading') return;
   state.racePhase = 'loading';
   try {
-    state.gameMode = document.getElementById('gameMode').value;
-    state.transmissionMode = document.getElementById('transMode').value;
-    state.trackCondition = document.getElementById('trackCondition').value;
-    state.selectedTrack = parseInt(document.getElementById('trackSelect').value);
-    state.totalLaps = parseInt(document.getElementById('lapCount').value);
-    state.botDifficulty = document.getElementById('botDifficulty').value;
+    const value = id => settings?.[id] ?? document.getElementById(id).value;
+    state.gameMode = value('gameMode');
+    state.transmissionMode = value('transMode');
+    state.trackCondition = value('trackCondition');
+    state.selectedTrack = parseInt(value('trackSelect'));
+    state.totalLaps = normalizeLaps(value('lapCount'));
+    document.getElementById('lapCount').value = state.totalLaps;
+    state.botDifficulty = value('botDifficulty');
+    lastRaceSettings = Object.fromEntries(['gameMode', 'transMode', 'trackCondition', 'trackSelect', 'botDifficulty', 'botCount'].map(id => [id, value(id)]));
+    lastRaceSettings.lapCount = state.totalLaps;
+    state.isPaused = false; state.pausedAt = null; state.keys = {}; state.finishDeadline = null;
 
     resizeCanvas();
     generateTrackPath(state.selectedTrack);
-    await loadRecords(state.selectedTrack, state.totalLaps);
-
-    // Carregar histórico de treino e offsetMemory dos bots
-    const botTrainingHistory = await fetchBotTrainingData();
-    const botOffsetMemory = await fetchBotOffsetMemory();
+    // Independent requests prepare the grid together instead of blocking each other.
+    const [, botTrainingHistory, botOffsetMemory] = await Promise.all([
+      loadRecords(state.selectedTrack, state.totalLaps), fetchBotTrainingData(), fetchBotOffsetMemory()
+    ]);
 
     state.cars = []; state.particles = []; state.skidMarks = []; state.floatingNotices = [];
     renderPoses.reset();
@@ -274,7 +318,7 @@ export async function startGame() {
     if (state.timerInterval) clearInterval(state.timerInterval);
     document.getElementById('timer-box').style.display = 'none';
 
-    const numBots = (state.gameMode === 'race') ? parseInt(document.getElementById('botCount').value) : 0;
+    const numBots = (state.gameMode === 'race') ? parseInt(value('botCount')) : 0;
 
     // Carro do Jogador (P1): posicionado no ÚLTIMO slot do grid (index = numBots)
     state.cars.push(new Car('#ff2222', 'Você (P1)', false, numBots, state.transmissionMode === 'auto'));
@@ -317,6 +361,7 @@ export async function startGame() {
     raceStart.begin(lastFrameTime);
     state.racePhase = 'countdown';
     state.isRunning = true;
+    document.getElementById('race-shortcuts').hidden = false;
     gameLoop();
   } catch (error) {
     backToMenu();
@@ -330,12 +375,12 @@ let physicsAccumulator = 0;
 let animationFrameId = null;
 const PHYSICS_STEP_MS = 1000 / 60;
 
-function gameLoop(now = performance.now()) {
+function gameLoop(now = performance.now(), presentPaused = false) {
   animationFrameId = null;
-  if (!state.isRunning) return;
+  if (!state.isRunning || (state.isPaused && !presentPaused)) return;
   const frameStart = performance.now();
 
-  if (state.racePhase === 'countdown') {
+  if (state.racePhase === 'countdown' && !state.isPaused) {
     if (!document.hidden && raceStart.update(now)) {
       state.racePhase = 'racing';
       for (const car of state.cars) {
@@ -349,8 +394,8 @@ function gameLoop(now = performance.now()) {
     physicsAccumulator = 0;
     lastFrameTime = now;
   }
-  const racing = state.racePhase === 'racing';
-  renderStartLights(raceStart, now);
+  const racing = state.racePhase === 'racing' && !state.isPaused;
+  renderStartLights(raceStart, state.isPaused ? state.pausedAt : now);
 
   // Física fixa a 60 Hz: o carro tem a mesma resposta em telas de 60, 120 ou 144 Hz.
   if (racing) physicsAccumulator += Math.min(100, now - lastFrameTime);
@@ -374,7 +419,7 @@ function gameLoop(now = performance.now()) {
 
   const playerCar = state.cars[0];
   const renderAlpha = physicsAccumulator / PHYSICS_STEP_MS;
-  mainCamera.update(renderPoses.sample(playerCar, renderAlpha), canvas);
+  if (!state.isPaused) mainCamera.update(renderPoses.sample(playerCar, renderAlpha), canvas);
 
   // 2. Limpar Tela
   ctx.fillStyle = '#060a08';
@@ -417,7 +462,7 @@ function gameLoop(now = performance.now()) {
   }
 
   // Fantasmas e Carros
-  if (racing) drawGhosts();
+  if (state.racePhase === 'racing') drawGhosts(racing);
   state.cars.forEach(car => {
     const pose = renderPoses.sample(car, renderAlpha);
     if (withinRenderBounds(pose, actorBounds)) car.draw(pose);
@@ -431,7 +476,7 @@ function gameLoop(now = performance.now()) {
   updateHUD();
   if (racing) checkRaceEnd();
 
-  telemetryPerformance.recordFrame(performance.now() - frameStart, now);
+  if (!state.isPaused) telemetryPerformance.recordFrame(performance.now() - frameStart, now);
 
-  if (state.isRunning) animationFrameId = requestAnimationFrame(gameLoop);
+  if (state.isRunning && !state.isPaused) animationFrameId = requestAnimationFrame(gameLoop);
 }
