@@ -195,6 +195,8 @@ async function smokeCheck(browser, options) {
       'getMLPerformanceMetrics', 'resetMLPerformanceMetrics', 'getOnlineMLTelemetryStats', 'getMLTelemetryStats'
     ].filter(name => typeof window[name] !== 'function'),
     uploader: window.getOnlineMLTelemetryStats(),
+    assets: performance.getEntriesByType('resource').map(entry => entry.name)
+      .filter(name => /\/assets\//.test(name)).sort(),
     userAgent: navigator.userAgent
   }));
   await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -525,6 +527,13 @@ function comparisonRows(comparison) {
     .join('\n').replace(/^/, '| metric | baseline | candidate | absolute delta | overhead |\n|---|---:|---:|---:|---:|\n');
 }
 
+function individualRunRows(runs) {
+  return runs.map(run => {
+    if (run.status !== 'completed') return `| ${run.id} | ${run.status} | N/A | N/A | N/A | N/A | N/A | ${run.error || 'unknown error'} |`;
+    return `| ${run.id} | completed | ${fmt(run.performance.averageFps, 2)} | ${fmt(run.performance.frame.p95Ms)} | ${fmt(run.performance.frameCpu.p95Ms)} | ${fmt(run.performance.collector.p95Ms)} | ${run.collector.totalSamples ?? 'N/A'} | ${run.diagnostics.consoleErrors.length} |`;
+  }).join('\n').replace(/^/, '| run | status | FPS | frame p95 ms | frame CPU p95 ms | collector p95 ms | local samples | console errors |\n|---|---|---:|---:|---:|---:|---:|---:|\n');
+}
+
 function generateReport(result) {
   const { config, environment, aggregates, comparisons, acceptance, onlineAggregate, cloudProbe } = result;
   const runCounts = Object.fromEntries(['A', 'B', 'C'].map(scenario => [scenario, result.runs.filter(run => run.scenario === scenario && run.status === 'completed').length]));
@@ -536,6 +545,13 @@ function generateReport(result) {
     config.quick || config.repetitions < 3 ? '- This was a diagnostic run with fewer than three repetitions; it is not the definitive benchmark.' : null,
     cloudProbe.available ? null : `- Scenario C was blocked: ${cloudProbe.reason}`,
     environment.workspaceDirty ? '- The benchmark ran against a dirty working tree. Unrelated local changes were preserved and are listed in the JSON artifact.' : null,
+    result.runs.some(run => run.diagnostics?.consoleErrors?.length)
+      ? '- Each measured run logged three `ERR_CONNECTION_REFUSED` resource errors from the separate legacy gameplay API at `http://localhost:3001`. They occurred while preparing the grid, before warm-up and the official measurement window.'
+      : null,
+    result.runs.some(run => run.status === 'completed' && Number.isFinite(run.performance.heapCurrentBytes)
+      && Number.isFinite(run.performance.heapPeakBytes) && run.performance.heapCurrentBytes > run.performance.heapPeakBytes)
+      ? '- The existing one-second heap sampler reported a final current heap above its sampled peak in at least one run. Raw API values are retained; treat heapPeakBytes as a sampled peak, not an exact maximum.'
+      : null,
     aggregates.A?.heapPeakBytes == null || aggregates.B?.heapPeakBytes == null ? '- performance.memory was unavailable; heap metrics are N/A and do not fail the benchmark.' : null,
     '- networkAsyncLatency is reported only as asynchronous network latency and is not used as CPU/frame overhead.',
     '- The player uses deterministic continuous throttle. Existing bots provide race/rendering load; no physics, AI, geometry, schema, or sample-rate behavior is altered.'
@@ -556,14 +572,16 @@ function generateReport(result) {
     `| warm-up | ${config.warmupSeconds}s, excluded from official metrics |\n` +
     `| measurement | ${config.measurementSeconds}s per run |\n` +
     `| repetitions | requested ${config.repetitions}; completed A=${runCounts.A}, B=${runCounts.B}, C=${runCounts.C} |\n` +
-    `| screenshot | ${result.smoke.screenshotPath} |\n\n` +
+    `| screenshot | ${result.smoke.screenshotPath} |\n` +
+    `| benchmark bundle assets | ${result.smoke.assets.join(', ') || 'N/A'} |\n\n` +
     `## Controlled scenario\n\n` +
-    `Interlagos (track ${config.trackId}), dry, ${config.bots + 1} cars (${config.bots} existing AI bots + player), professional difficulty, automatic transmission, ${config.laps} laps. ` +
+    `Interlagos (track ${config.trackId}), dry, ${config.bots + 1} cars (${config.bots} existing AI bots + player), professional difficulty, automatic transmission, ${config.laps} laps. The game exposes no selectable graphics preset, so every run uses the same production rendering configuration. ` +
     `Each repetition uses a fresh browser context, the same Chromium process/version, seed ${config.seed}, viewport, controls, and continuous-throttle driving logic.\n\n` +
     `The game is allowed to reach lights-out, then warmed for ${config.warmupSeconds}s. Performance metrics are reset immediately before the ${config.measurementSeconds}s official window. ` +
     (cloudProbe.available
       ? `For C, Render health and session ACTIVE/serverSessionId are confirmed before warm-up, so cold start is outside the official window.\n\n`
       : `C was not run because its browser/cloud gate was blocked before measurement.\n\n`) +
+    `## Individual runs\n\n${individualRunRows(result.runs)}\n\n` +
     `## Scenario A — telemetry off\n\n${metricRows(aggregates.A)}\n\n` +
     `## Scenario B — local collection on, online upload off\n\n${metricRows(aggregates.B)}\n\n` +
     `## Scenario C — local collection and online upload\n\n${metricRows(aggregates.C)}\n\n` +
@@ -578,8 +596,19 @@ function generateReport(result) {
     `## Limitations\n\n${limitations}\n\n` +
     `## Reproduction\n\n` +
     `Install once:\n\n\`\`\`powershell\nnpm install\nnpx playwright install chromium\n\`\`\`\n\n` +
-    `Official local production benchmark:\n\n\`\`\`powershell\n$env:VITE_TELEMETRY_API_URL='https://quick-grid-telemetry-api.onrender.com'\nnpm run benchmark:ml22\n\`\`\`\n\n` +
-    `Quick diagnostic only:\n\n\`\`\`powershell\n$env:VITE_TELEMETRY_API_URL='https://quick-grid-telemetry-api.onrender.com'\nnpm run benchmark:ml22 -- --quick\n\`\`\`\n`;
+    `Official local production benchmark (A/B; C remains subject to Render CORS for localhost):\n\n\`\`\`powershell\n$env:VITE_TELEMETRY_API_URL='https://quick-grid-telemetry-api.onrender.com'\nnpm.cmd run benchmark:ml22\n\`\`\`\n\n` +
+    `Official A/B/C through the Vercel production origin allowed by Render CORS:\n\n\`\`\`powershell\nnpm.cmd run benchmark:ml22 -- --base-url='https://<seu-dominio-production-da-vercel>'\n\`\`\`\n\n` +
+    `Quick diagnostic only:\n\n\`\`\`powershell\n$env:VITE_TELEMETRY_API_URL='https://quick-grid-telemetry-api.onrender.com'\nnpm.cmd run benchmark:ml22 -- --quick\n\`\`\`\n`;
+}
+
+function buildRunSchedule(scenarios, repetitions) {
+  const schedule = [];
+  for (let repetition = 1; repetition <= repetitions; repetition++) {
+    const offset = (repetition - 1) % scenarios.length;
+    const rotated = [...scenarios.slice(offset), ...scenarios.slice(0, offset)];
+    for (const scenario of rotated) schedule.push({ scenario, repetition });
+  }
+  return schedule;
 }
 
 async function readGitStatus() {
@@ -612,9 +641,9 @@ async function main() {
     const runs = [];
     const scenarios = cloudProbe.available ? ['A', 'B', 'C'] : ['A', 'B'];
 
-    // Interleave A/B/C per repetition to reduce long-run thermal and scheduling drift.
-    for (let repetition = 1; repetition <= options.repetitions; repetition++) {
-      for (const scenario of scenarios) runs.push(await runScenario(browser, options, scenario, repetition));
+    // Rotate scenario order per repetition to reduce long-run thermal and scheduling bias.
+    for (const { scenario, repetition } of buildRunSchedule(scenarios, options.repetitions)) {
+      runs.push(await runScenario(browser, options, scenario, repetition));
     }
 
     const grouped = Object.fromEntries(['A', 'B', 'C'].map(scenario => [scenario, runs.filter(run => run.scenario === scenario)]));
