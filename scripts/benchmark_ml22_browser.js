@@ -40,6 +40,35 @@ const METRIC_PATHS = [
   ['averagePayloadBytes', 'average payload bytes', 'higher'],
   ['heapPeakBytes', 'heap peak', 'higher']
 ];
+const DISTRIBUTION_METRIC_PATHS = [
+  ['averageFps', 'average FPS'],
+  ['frame.meanMs', 'frame mean ms'],
+  ['frame.p95Ms', 'frame p95 ms'],
+  ['frame.p99Ms', 'frame p99 ms'],
+  ['frameCpu.meanMs', 'frame CPU mean ms'],
+  ['frameCpu.p95Ms', 'frame CPU p95 ms'],
+  ['frameCpu.p99Ms', 'frame CPU p99 ms'],
+  ['collector.meanMs', 'collector mean ms'],
+  ['collector.p95Ms', 'collector p95 ms'],
+  ['collector.p99Ms', 'collector p99 ms'],
+  ['uploaderMainThread.meanMs', 'uploader main mean ms'],
+  ['uploaderMainThread.p95Ms', 'uploader main p95 ms'],
+  ['uploaderMainThread.p99Ms', 'uploader main p99 ms'],
+  ['networkAsyncLatency.meanMs', 'network async mean ms'],
+  ['networkAsyncLatency.p95Ms', 'network async p95 ms'],
+  ['networkAsyncLatency.p99Ms', 'network async p99 ms'],
+  ['requestsPerMinute', 'requests/min'],
+  ['uploadedKBPerMinute', 'uploaded KB/min'],
+  ['averagePayloadBytes', 'average payload bytes'],
+  ['heapStartBytes', 'heap start bytes'],
+  ['heapCurrentBytes', 'heap current bytes'],
+  ['heapPeakBytes', 'heap peak bytes']
+];
+const ONLINE_DISTRIBUTION_KEYS = [
+  'sentBatches', 'acknowledgedBatches', 'uploadedSamples', 'pendingBatches', 'persistedBatches',
+  'retryCount', 'droppedBatches', 'droppedSamples', 'idempotentDuplicates', 'inFlightRequests',
+  'averageUploadLatencyMs'
+];
 
 function parseArgs(argv) {
   const options = {
@@ -182,7 +211,8 @@ async function newBenchmarkPage(browser, options, suffix) {
 async function smokeCheck(browser, options) {
   console.log('[browser] Running real-browser smoke verification...');
   const { context, page, diagnostics } = await newBenchmarkPage(browser, options, 'smoke');
-  const screenshotPath = path.join(path.dirname(options.outputPath), 'ml22_browser_smoke.png');
+  const outputStem = path.basename(options.outputPath, path.extname(options.outputPath));
+  const screenshotPath = path.join(path.dirname(options.outputPath), `${outputStem}_smoke.png`);
   await mkdir(path.dirname(screenshotPath), { recursive: true });
   const evidence = await page.evaluate(() => ({
     title: document.title,
@@ -200,6 +230,7 @@ async function smokeCheck(browser, options) {
     userAgent: navigator.userAgent
   }));
   await page.screenshot({ path: screenshotPath, fullPage: true });
+  evidence.finalUrl = page.url();
   await context.close();
   evidence.screenshotPath = path.relative(ROOT, screenshotPath).replaceAll('\\', '/');
   evidence.consoleErrors = diagnostics.consoleErrors;
@@ -353,7 +384,12 @@ async function runScenario(browser, options, scenario, repetition) {
     const captured = await page.evaluate(() => ({
       performance: window.getMLPerformanceMetrics(),
       collector: window.getMLTelemetryStats(),
-      onlineAtMeasurementEnd: window.getOnlineMLTelemetryStats()
+      onlineAtMeasurementEnd: window.getOnlineMLTelemetryStats(),
+      browserState: {
+        visibilityState: document.visibilityState,
+        hidden: document.hidden,
+        hasFocus: document.hasFocus()
+      }
     }));
 
     await page.evaluate(() => window.stopMLTelemetry());
@@ -401,6 +437,27 @@ function numericMedian(values) {
   return numbers.length % 2 ? numbers[middle] : (numbers[middle - 1] + numbers[middle]) / 2;
 }
 
+function numericDistribution(values) {
+  const numbers = values.filter(Number.isFinite);
+  if (!numbers.length) return null;
+  const median = numericMedian(numbers);
+  const min = Math.min(...numbers);
+  const max = Math.max(...numbers);
+  const mean = numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+  const variance = numbers.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / numbers.length;
+  const standardDeviation = Math.sqrt(variance);
+  return {
+    values: numbers,
+    count: numbers.length,
+    min,
+    median,
+    max,
+    range: max - min,
+    standardDeviation,
+    coefficientOfVariationPercent: mean === 0 ? null : (standardDeviation / Math.abs(mean)) * 100
+  };
+}
+
 function getPath(object, keyPath) {
   return keyPath.split('.').reduce((value, key) => value?.[key], object);
 }
@@ -422,18 +479,32 @@ function aggregatePerformance(runs) {
   return stats;
 }
 
+function performanceDistributions(runs) {
+  const completed = runs.filter(run => run.status === 'completed');
+  return Object.fromEntries(DISTRIBUTION_METRIC_PATHS.map(([key, label]) => [key, {
+    label,
+    ...numericDistribution(completed.map(run => getPath(run.performance, key)))
+  }]));
+}
+
 function aggregateOnline(runs) {
   const completed = runs.filter(run => run.status === 'completed' && run.onlineFinal);
   if (!completed.length) return null;
   const aggregate = {};
-  for (const key of ['sentBatches', 'acknowledgedBatches', 'uploadedSamples', 'pendingBatches', 'persistedBatches',
-    'retryCount', 'droppedBatches', 'droppedSamples', 'idempotentDuplicates', 'inFlightRequests', 'averageUploadLatencyMs']) {
+  for (const key of ONLINE_DISTRIBUTION_KEYS) {
     aggregate[key] = numericMedian(completed.map(run => run.onlineFinal[key]));
   }
   aggregate.lastError = completed.every(run => run.onlineFinal.lastError == null) ? null
     : completed.map(run => run.onlineFinal.lastError).filter(Boolean);
   aggregate.sessionStatus = completed.map(run => run.onlineFinal.sessionStatus);
   return aggregate;
+}
+
+function onlineDistributions(runs) {
+  const completed = runs.filter(run => run.status === 'completed' && run.onlineFinal);
+  return Object.fromEntries(ONLINE_DISTRIBUTION_KEYS.map(key => [key,
+    numericDistribution(completed.map(run => run.onlineFinal[key]))
+  ]));
 }
 
 function compareMetrics(baseline, candidate) {
@@ -461,7 +532,20 @@ function criterion(id, label, actual, limit, operator = '<=') {
   return { id, label, actual: available ? actual : null, operator, limit, status: available ? (passed ? 'PASS' : 'FAIL') : 'BLOCKED' };
 }
 
-function evaluateCriteria(aggregates, comparisons, online, repetitions, scenarioCBlocked) {
+function allEqualCriterion(id, label, values, expected) {
+  const available = values.length > 0;
+  return {
+    id,
+    label,
+    actual: available ? values : null,
+    operator: 'all ===',
+    limit: expected,
+    status: available ? (values.every(value => value === expected) ? 'PASS' : 'FAIL') : 'BLOCKED'
+  };
+}
+
+function evaluateCriteria(aggregates, comparisons, repetitions, scenarioCBlocked, cRuns) {
+  const cFinals = cRuns.filter(run => run.status === 'completed' && run.onlineFinal).map(run => run.onlineFinal);
   const criteria = [
     criterion('B_FPS', 'B vs A average FPS drop', comparisonValue(comparisons.BvsA, 'averageFps'), 3),
     criterion('B_FRAME_P95', 'B vs A frame p95 increase', comparisonValue(comparisons.BvsA, 'frame.p95Ms'), 5),
@@ -469,20 +553,21 @@ function evaluateCriteria(aggregates, comparisons, online, repetitions, scenario
     criterion('C_FPS', 'C vs A average FPS drop', comparisonValue(comparisons.CvsA, 'averageFps'), 5),
     criterion('C_FRAME_P95', 'C vs A frame p95 increase', comparisonValue(comparisons.CvsA, 'frame.p95Ms'), 8),
     criterion('C_UPLOADER_P95', 'C uploader main-thread p95', aggregates.C?.uploaderMainThread?.p95Ms, 2, '<'),
-    criterion('C_DROPPED_BATCHES', 'C dropped batches', online?.droppedBatches, 0, '==='),
-    criterion('C_DROPPED_SAMPLES', 'C dropped samples', online?.droppedSamples, 0, '==='),
-    criterion('C_PENDING_BATCHES', 'C pending batches drained', online?.pendingBatches, 0, '==='),
-    criterion('C_IN_FLIGHT', 'C in-flight requests drained', online?.inFlightRequests, 0, '===')
+    allEqualCriterion('C_DROPPED_BATCHES', 'C dropped batches in every run', cFinals.map(stats => stats.droppedBatches), 0),
+    allEqualCriterion('C_DROPPED_SAMPLES', 'C dropped samples in every run', cFinals.map(stats => stats.droppedSamples), 0),
+    allEqualCriterion('C_PENDING_BATCHES', 'C pending batches drained in every run', cFinals.map(stats => stats.pendingBatches), 0),
+    allEqualCriterion('C_PERSISTED_BATCHES', 'C persisted queue drained in every run', cFinals.map(stats => stats.persistedBatches), 0),
+    allEqualCriterion('C_IN_FLIGHT', 'C in-flight requests drained in every run', cFinals.map(stats => stats.inFlightRequests), 0)
   ];
   criteria.push({
-    id: 'C_LAST_ERROR', label: 'C last error is null', actual: online ? online.lastError : null,
-    operator: '===', limit: null, status: online ? (online.lastError == null ? 'PASS' : 'FAIL') : 'BLOCKED'
+    id: 'C_LAST_ERROR', label: 'C last error is null in every run', actual: cFinals.length ? cFinals.map(stats => stats.lastError) : null,
+    operator: 'all ===', limit: null, status: cFinals.length ? (cFinals.every(stats => stats.lastError == null) ? 'PASS' : 'FAIL') : 'BLOCKED'
   });
   criteria.push({
-    id: 'C_ACKS', label: 'C acknowledged batches match sent batches',
-    actual: online ? `${online.acknowledgedBatches}/${online.sentBatches}` : null,
-    operator: '===', limit: 'sentBatches',
-    status: online ? (online.acknowledgedBatches === online.sentBatches ? 'PASS' : 'FAIL') : 'BLOCKED'
+    id: 'C_ACKS', label: 'C acknowledged batches match sent batches in every run',
+    actual: cFinals.length ? cFinals.map(stats => `${stats.acknowledgedBatches}/${stats.sentBatches}`) : null,
+    operator: 'all ===', limit: 'sentBatches',
+    status: cFinals.length ? (cFinals.every(stats => stats.acknowledgedBatches === stats.sentBatches) ? 'PASS' : 'FAIL') : 'BLOCKED'
   });
   if (scenarioCBlocked) {
     for (const item of criteria.filter(item => item.id.startsWith('C_'))) item.status = 'BLOCKED';
@@ -534,8 +619,29 @@ function individualRunRows(runs) {
   }).join('\n').replace(/^/, '| run | status | FPS | frame p95 ms | frame CPU p95 ms | collector p95 ms | local samples | console errors |\n|---|---|---:|---:|---:|---:|---:|---:|\n');
 }
 
+function distributionRows(distributions) {
+  const rows = [];
+  for (const scenario of ['A', 'B', 'C']) {
+    for (const [key, distribution] of Object.entries(distributions.performance[scenario])) {
+      if (!distribution || distribution.count == null) continue;
+      rows.push(`| ${scenario} | ${distribution.label || key} | ${distribution.values.map(value => fmt(value)).join(', ')} | ${fmt(distribution.min)} | ${fmt(distribution.median)} | ${fmt(distribution.max)} | ${fmt(distribution.range)} | ${fmt(distribution.standardDeviation)} |`);
+    }
+  }
+  return rows.join('\n').replace(/^/, '| scenario | metric | individual values | min | median | max | range | std dev |\n|---|---|---|---:|---:|---:|---:|---:|\n');
+}
+
+function onlineIndividualRows(runs) {
+  const cRuns = runs.filter(run => run.scenario === 'C');
+  return cRuns.map(run => {
+    const stats = run.onlineFinal || run.online;
+    if (!stats) return `| ${run.id} | ${run.status} | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | ${run.error || 'unavailable'} |`;
+    const serverSessionId = stats.serverSessionId ?? run.onlineAtMeasurementEnd?.serverSessionId;
+    return `| ${run.id} | ${run.status} | ${serverSessionId ?? 'N/A'} | ${stats.sentBatches ?? 'N/A'} | ${stats.acknowledgedBatches ?? 'N/A'} | ${stats.retryCount ?? 'N/A'} | ${stats.droppedBatches ?? 'N/A'} | ${stats.droppedSamples ?? 'N/A'} | ${stats.pendingBatches ?? 'N/A'} | ${stats.persistedBatches ?? 'N/A'} | ${stats.inFlightRequests ?? 'N/A'} | ${stats.sessionStatus ?? 'N/A'} / ${stats.lastError ?? 'null'} |`;
+  }).join('\n').replace(/^/, '| run | status | server session | sent | ack | retries | dropped batches | dropped samples | pending | persisted | in flight | final status / error |\n|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|\n');
+}
+
 function generateReport(result) {
-  const { config, environment, aggregates, comparisons, acceptance, onlineAggregate, cloudProbe } = result;
+  const { config, environment, aggregates, distributions, comparisons, acceptance, onlineAggregate, cloudProbe } = result;
   const runCounts = Object.fromEntries(['A', 'B', 'C'].map(scenario => [scenario, result.runs.filter(run => run.scenario === scenario && run.status === 'completed').length]));
   const cRows = onlineAggregate
     ? Object.entries(onlineAggregate).map(([key, value]) => `| ${key} | ${Array.isArray(value) ? value.join(', ') : value ?? 'null'} |`).join('\n')
@@ -544,7 +650,7 @@ function generateReport(result) {
   const limitations = [
     config.quick || config.repetitions < 3 ? '- This was a diagnostic run with fewer than three repetitions; it is not the definitive benchmark.' : null,
     cloudProbe.available ? null : `- Scenario C was blocked: ${cloudProbe.reason}`,
-    environment.workspaceDirty ? '- The benchmark ran against a dirty working tree. Unrelated local changes were preserved and are listed in the JSON artifact.' : null,
+    environment.workspaceDirty ? '- The benchmark ran against a dirty working tree. Existing working-tree changes were preserved and are listed in the JSON artifact.' : null,
     result.runs.some(run => run.diagnostics?.consoleErrors?.length)
       ? '- Each measured run logged three `ERR_CONNECTION_REFUSED` resource errors from the separate legacy gameplay API at `http://localhost:3001`. They occurred while preparing the grid, before warm-up and the official measurement window.'
       : null,
@@ -556,13 +662,14 @@ function generateReport(result) {
     '- networkAsyncLatency is reported only as asynchronous network latency and is not used as CPU/frame overhead.',
     '- The player uses deterministic continuous throttle. Existing bots provide race/rendering load; no physics, AI, geometry, schema, or sample-rate behavior is altered.'
   ].filter(Boolean).join('\n');
-  return `# ML2.2-G — Browser performance benchmark A/B/C\n\n` +
+  return `# ${result.benchmark} — Browser performance benchmark A/B/C\n\n` +
     `Overall gate: **${acceptance.status}**${acceptance.note ? ` — ${acceptance.note}` : ''}\n\n` +
     `## Environment\n\n` +
     `| item | value |\n|---|---|\n` +
     `| executed at | ${result.finishedAt} |\n` +
     `| source | ${environment.source} |\n` +
-    `| URL | ${environment.url} |\n` +
+    `| requested URL | ${environment.requestedUrl} |\n` +
+    `| final URL after redirects | ${environment.url} |\n` +
     `| browser | ${environment.browserName} ${environment.browserVersion} |\n` +
     `| user agent | ${environment.userAgent} |\n` +
     `| OS | ${environment.os} |\n` +
@@ -572,6 +679,7 @@ function generateReport(result) {
     `| warm-up | ${config.warmupSeconds}s, excluded from official metrics |\n` +
     `| measurement | ${config.measurementSeconds}s per run |\n` +
     `| repetitions | requested ${config.repetitions}; completed A=${runCounts.A}, B=${runCounts.B}, C=${runCounts.C} |\n` +
+    `| balanced run order | ${config.runOrder.join(' → ')} |\n` +
     `| screenshot | ${result.smoke.screenshotPath} |\n` +
     `| benchmark bundle assets | ${result.smoke.assets.join(', ') || 'N/A'} |\n\n` +
     `## Controlled scenario\n\n` +
@@ -585,11 +693,13 @@ function generateReport(result) {
     `## Scenario A — telemetry off\n\n${metricRows(aggregates.A)}\n\n` +
     `## Scenario B — local collection on, online upload off\n\n${metricRows(aggregates.B)}\n\n` +
     `## Scenario C — local collection and online upload\n\n${metricRows(aggregates.C)}\n\n` +
+    `## Individual values and simple dispersion\n\nMedian is the primary comparison statistic. Range and population standard deviation expose run-to-run spread.\n\n${distributionRows(distributions)}\n\n` +
     `### C upload delivery\n\n| metric | median/final value |\n|---|---|\n${cRows}\n\n` +
+    `### C upload delivery by run\n\n${onlineIndividualRows(result.runs)}\n\n` +
     `## B vs A\n\n${comparisonRows(comparisons.BvsA)}\n\n` +
     `## C vs A\n\n${comparisonRows(comparisons.CvsA)}\n\n` +
     `## C vs B\n\n${comparisonRows(comparisons.CvsB)}\n\n` +
-    `Positive overhead means worse (FPS drop or time/memory increase). A negative value is an improvement.\n\n` +
+    `Positive overhead means worse (FPS drop or time/memory increase). A negative result means lower observed overhead in this sample; it is not, by itself, evidence that telemetry caused a performance gain.\n\n` +
     `## Acceptance criteria\n\n| status | criterion | actual | limit |\n|---|---|---:|---|\n${criteriaRows}\n\n` +
     `## Browser/cloud gate\n\n` +
     `Browser smoke verification: **PASS**. Render health: ${cloudProbe.healthStatus ?? 'N/A'}; CORS preflight from ${cloudProbe.pageOrigin}: ${cloudProbe.preflightStatus ?? 'N/A'}; scenario C: **${cloudProbe.available ? 'AVAILABLE' : 'BLOCKED'}**.\n\n` +
@@ -597,7 +707,7 @@ function generateReport(result) {
     `## Reproduction\n\n` +
     `Install once:\n\n\`\`\`powershell\nnpm install\nnpx playwright install chromium\n\`\`\`\n\n` +
     `Official local production benchmark (A/B; C remains subject to Render CORS for localhost):\n\n\`\`\`powershell\n$env:VITE_TELEMETRY_API_URL='https://quick-grid-telemetry-api.onrender.com'\nnpm.cmd run benchmark:ml22\n\`\`\`\n\n` +
-    `Official A/B/C through the Vercel production origin allowed by Render CORS:\n\n\`\`\`powershell\nnpm.cmd run benchmark:ml22 -- --base-url='https://<seu-dominio-production-da-vercel>'\n\`\`\`\n\n` +
+    `Official A/B/C through the Vercel production origin allowed by Render CORS:\n\n\`\`\`powershell\nnpm.cmd run benchmark:ml22 -- --base-url='https://quick-grid-nu.vercel.app' --output='artifacts/ml22_browser_benchmark_vercel.json' --report='artifacts/ml22_browser_benchmark_vercel.md'\n\`\`\`\n\n` +
     `Quick diagnostic only:\n\n\`\`\`powershell\n$env:VITE_TELEMETRY_API_URL='https://quick-grid-telemetry-api.onrender.com'\nnpm.cmd run benchmark:ml22 -- --quick\n\`\`\`\n`;
 }
 
@@ -636,30 +746,35 @@ async function main() {
     const browserVersion = browser.version();
     console.log(`[browser] Chromium ${browserVersion}; ${options.viewport.width}x${options.viewport.height}; headless=${options.headless}`);
     const smoke = await smokeCheck(browser, options);
-    const pageOrigin = new URL(options.url).origin;
+    const pageOrigin = new URL(smoke.finalUrl).origin;
     const cloudProbe = await probeOnlineScenario(smoke.uploader.apiUrl, pageOrigin);
     const runs = [];
     const scenarios = cloudProbe.available ? ['A', 'B', 'C'] : ['A', 'B'];
+    const schedule = buildRunSchedule(scenarios, options.repetitions);
 
     // Rotate scenario order per repetition to reduce long-run thermal and scheduling bias.
-    for (const { scenario, repetition } of buildRunSchedule(scenarios, options.repetitions)) {
+    for (const { scenario, repetition } of schedule) {
       runs.push(await runScenario(browser, options, scenario, repetition));
     }
 
     const grouped = Object.fromEntries(['A', 'B', 'C'].map(scenario => [scenario, runs.filter(run => run.scenario === scenario)]));
     const aggregates = Object.fromEntries(['A', 'B', 'C'].map(scenario => [scenario, aggregatePerformance(grouped[scenario])]));
     const onlineAggregate = aggregateOnline(grouped.C);
+    const distributions = {
+      performance: Object.fromEntries(['A', 'B', 'C'].map(scenario => [scenario, performanceDistributions(grouped[scenario])])),
+      onlineC: onlineDistributions(grouped.C)
+    };
     const comparisons = {
       BvsA: compareMetrics(aggregates.A, aggregates.B),
       CvsA: compareMetrics(aggregates.A, aggregates.C),
       CvsB: compareMetrics(aggregates.B, aggregates.C)
     };
-    const acceptance = evaluateCriteria(aggregates, comparisons, onlineAggregate, options.repetitions, !cloudProbe.available);
+    const acceptance = evaluateCriteria(aggregates, comparisons, options.repetitions, !cloudProbe.available, grouped.C);
     const workspaceStatus = await readGitStatus();
     const finishedAt = new Date().toISOString();
     const result = {
       schemaVersion: 1,
-      benchmark: 'ML2.2-G browser performance A/B/C',
+      benchmark: options.baseUrl ? 'ML2.2-H Vercel production official' : 'ML2.2-G local preliminary',
       startedAt,
       finishedAt,
       config: {
@@ -678,11 +793,15 @@ async function main() {
         transmission: options.transmission,
         difficulty: options.difficulty,
         seed: options.seed,
-        driving: 'continuous KeyW throttle'
+        driving: 'continuous KeyW throttle',
+        cpuThrottling: 'none configured',
+        pageIsolation: 'one fresh context with one page per run; one reused Chromium process',
+        runOrder: schedule.map(({ scenario, repetition }) => `${scenario}${repetition}`)
       },
       environment: {
         source: options.source,
-        url: options.url,
+        requestedUrl: options.url,
+        url: smoke.finalUrl,
         browserName: 'Chromium',
         browserVersion,
         userAgent: smoke.userAgent,
@@ -696,6 +815,7 @@ async function main() {
       cloudProbe,
       runs,
       aggregates,
+      distributions,
       onlineAggregate,
       comparisons,
       acceptance
