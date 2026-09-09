@@ -2,6 +2,7 @@
 // Fila assíncrona desacoplada, persistência IndexedDB, exponential backoff com jitter e resiliência offline
 
 import { TELEMETRY_VERSIONS } from '../../constants.js';
+import { SIMULATION_FINGERPRINT_SHA256 } from '../lineage/baselineManifest.js';
 import { telemetryIndexedDB } from './telemetryIndexedDB.js';
 import { telemetryPerformance } from './performanceMetrics.js';
 
@@ -275,6 +276,9 @@ export class OnlineTelemetryUploader {
           trackGeometryVersion: TELEMETRY_VERSIONS.TRACK_GEOMETRY_VERSION,
           physicsVersion: TELEMETRY_VERSIONS.PHYSICS_VERSION,
           featureManifestVersion: TELEMETRY_VERSIONS.FEATURE_MANIFEST_VERSION
+        },
+        clientInfo: {
+          simulationFingerprintSha256: SIMULATION_FINGERPRINT_SHA256
         },
         consentVersion: TELEMETRY_VERSIONS.CONSENT_VERSION
       };

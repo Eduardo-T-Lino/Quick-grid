@@ -5,7 +5,9 @@
 // - Schema V1 (Legado / Pré-Causal): S_{t+1} -> A_t. Não usar para treinamento de Behavioral Cloning.
 // - Schema V2 (Causal Padrão): Observation(t) -> Action(t). Captura atômica pré-física.
 
-export const SCHEMA_VERSION = 2;
+import { TELEMETRY_LINEAGE_VERSIONS } from '../lineage/baselineManifest.js';
+
+export const SCHEMA_VERSION = TELEMETRY_LINEAGE_VERSIONS.SCHEMA_VERSION;
 
 /**
  * Valida a integridade matemática e física de uma amostra de telemetria.

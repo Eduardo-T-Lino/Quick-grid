@@ -1,6 +1,8 @@
 // ========== SERVER CONFIGURATION (FASE ML2.0) ==========
 // Centraliza todas as variáveis de ambiente com defaults seguros para dev e produção
 
+import { TELEMETRY_LINEAGE_VERSIONS } from '../../src/ml/lineage/baselineManifest.js';
+
 export const config = {
   // Ambiente de execução
   NODE_ENV: process.env.NODE_ENV || 'development',
@@ -45,14 +47,7 @@ export const config = {
   DB_CONNECTION_TIMEOUT_MS: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '5000', 10),
 
   // Metadados Oficiais Homologados (Fase ML2.0)
-  VERSIONS: {
-    SCHEMA_VERSION: 2,
-    GAME_BUILD_VERSION: '0.2.0-ml2',
-    TRACK_GEOMETRY_VERSION: '1.5.0-centripetal',
-    PHYSICS_VERSION: '1.5.0-gt3',
-    FEATURE_MANIFEST_VERSION: '2.1.0',
-    CONSENT_VERSION: '1.0.0'
-  }
+  VERSIONS: TELEMETRY_LINEAGE_VERSIONS
 };
 
 export function validateProductionConfig() {

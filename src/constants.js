@@ -1,6 +1,8 @@
 // ========== GT3 REAL-SCALE CONSTANTS (METRIC 1:1 SYSTEM) ==========
 // 1 unidade = 1 metro do mundo real
 
+import { TELEMETRY_LINEAGE_VERSIONS } from './ml/lineage/baselineManifest.js';
+
 export const MAX_SPEED_KMH = 285;
 export const MAX_INTERNAL_SPEED = 1.35; // Metros por frame a 60 FPS (285 km/h no HUD)
 export const TRACK_WIDTH = 24;          // 24 metros de largura média FIA ampliada
@@ -12,14 +14,7 @@ export const BOT_DRIVER_MODE = {
 };
 
 // ========== ML VERSION METADATA (FASE ML2.0 DATA LINEAGE) ==========
-export const TELEMETRY_VERSIONS = {
-  SCHEMA_VERSION: 2,
-  GAME_BUILD_VERSION: '0.2.0-ml2',
-  TRACK_GEOMETRY_VERSION: '1.5.0-centripetal',
-  PHYSICS_VERSION: '1.5.0-gt3',
-  FEATURE_MANIFEST_VERSION: '2.1.0',
-  CONSENT_VERSION: '1.0.0'
-};
+export const TELEMETRY_VERSIONS = TELEMETRY_LINEAGE_VERSIONS;
 
 // Janela de desempenho GT3: slicks, downforce moderado e ajudas permitidas.
 // As unidades são metros/frame²; a simulação usa 60 FPS fixos.

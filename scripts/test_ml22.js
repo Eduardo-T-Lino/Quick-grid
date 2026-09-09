@@ -4,6 +4,7 @@ import { createApp } from '../server/src/app.js';
 import { createIngestToken, verifyIngestToken } from '../server/src/security/ingestToken.js';
 import { OnlineTelemetryUploader } from '../src/ml/telemetry/telemetryUploader.js';
 import { telemetryIndexedDB } from '../src/ml/telemetry/telemetryIndexedDB.js';
+import { TELEMETRY_LINEAGE_VERSIONS } from '../src/ml/lineage/baselineManifest.js';
 
 let passed = 0;
 let failed = 0;
@@ -27,9 +28,12 @@ function request(server, path, method = 'GET', body = null, headers = {}) {
 }
 
 const sessionPayload = {
-  schemaVersion: 2, trackId: 21, sampleRateHz: 10, scope: 'PLAYER_ONLY', consentVersion: '1.0.0',
-  client: { gameBuildVersion: '0.2.0-ml2', trackGeometryVersion: '1.5.0-centripetal',
-    physicsVersion: '1.5.0-gt3', featureManifestVersion: '2.1.0' }
+  schemaVersion: TELEMETRY_LINEAGE_VERSIONS.SCHEMA_VERSION,
+  trackId: 21, sampleRateHz: 10, scope: 'PLAYER_ONLY', consentVersion: TELEMETRY_LINEAGE_VERSIONS.CONSENT_VERSION,
+  client: { gameBuildVersion: TELEMETRY_LINEAGE_VERSIONS.GAME_BUILD_VERSION,
+    trackGeometryVersion: TELEMETRY_LINEAGE_VERSIONS.TRACK_GEOMETRY_VERSION,
+    physicsVersion: TELEMETRY_LINEAGE_VERSIONS.PHYSICS_VERSION,
+    featureManifestVersion: TELEMETRY_LINEAGE_VERSIONS.FEATURE_MANIFEST_VERSION }
 };
 
 async function run() {

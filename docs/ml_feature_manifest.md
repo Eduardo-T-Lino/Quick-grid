@@ -2,6 +2,7 @@
 
 **Quick-grid Machine Learning Telemetry Foundation**  
 **Versão do Schema Homologado:** `Schema V2 (Causal Standard: Observation(t) -> Action(t))`
+**Versão do Feature Manifest:** `2.1.0`
 
 ---
 
@@ -28,7 +29,7 @@ O modelo treinado deve prever 3 saídas contínuas normalizadas:
 ### 2.1. Recomendações de Treinamento (Fase ML1.5 Quality Gate)
 
 1. **`STEERING` (Esterço do Volante)**:
-   - **Target de Regressão Contínua**: Deve ser treinado via função de perda contínua (ex: MSE, Smooth L1 Loss ou Huber Loss). Mesmo com entradas via teclado, o filtro de rampa de esterço (`TAXA_ESTERCO_SUBIDA` / `TAXA_ESTERCO_RETORNO`) introduz suavização e dinâmica contínua.
+   - **Target de Regressão Contínua**: Deve ser treinado via função de perda contínua (ex: MSE, Smooth L1 Loss ou Huber Loss). Mesmo com entradas via teclado, o filtro de rampa introduz suavização e dinâmica contínua. No freeze ML2.2-J, a política humana usa rampa `0.085` em baixa/`0.060` em alta, lock `1.00` em baixa/`0.88` em alta e retorno `0.12`; o label continua sendo o comando pós-filtro realmente aplicado.
 2. **`THROTTLE` & `BRAKE` (Acelerador e Freio)**:
    - **Assinatura de Entrada (Teclado vs Analógico)**:
      - No dataset humano inicial (teclado), os labels de acelerador e freio são predominantemente binários ($\{0.0, 1.0\}$) com forte desbalanceamento (>80% full throttle, ~1% freio ativo).
@@ -40,6 +41,8 @@ O modelo treinado deve prever 3 saídas contínuas normalizadas:
 ---
 
 ## 3. Features de Entrada do Modelo V1 ($\text{Observation}_t$)
+
+A ordem canônica para serialização/modelagem é a ordem das linhas da tabela abaixo e está congelada no artefato `src/ml/lineage/baselineManifest.js`.
 
 ### 3.1. Features INCLUÍDAS no Treinamento Inicial
 

@@ -15,9 +15,9 @@ export function validateSessionCreation(body) {
     return { valid: false, errors: ['Body da requisição inválido'] };
   }
 
-  // 1. Schema Version obrigatório = 2
-  if (body.schemaVersion !== 2) {
-    errors.push(`schemaVersion inválido (${body.schemaVersion}). O pipeline requer estritamente schemaVersion = 2.`);
+  // 1. Schema Version obrigatório = baseline canônico
+  if (body.schemaVersion !== config.VERSIONS.SCHEMA_VERSION) {
+    errors.push(`schemaVersion inválido (${body.schemaVersion}). O pipeline requer estritamente schemaVersion = ${config.VERSIONS.SCHEMA_VERSION}.`);
   }
 
   // 2. Track ID
@@ -71,7 +71,7 @@ export function validateSessionCreation(body) {
   return {
     valid: true,
     data: {
-      schemaVersion: 2,
+      schemaVersion: config.VERSIONS.SCHEMA_VERSION,
       trackId: Math.floor(body.trackId),
       sampleRateHz: sampleRate,
       scope,
@@ -90,8 +90,8 @@ export function validateTelemetrySample(sample, idx = 0) {
     return `Sample #${idx}: objeto inválido`;
   }
 
-  if (sample.schemaVersion !== 2) {
-    return `Sample #${idx}: schemaVersion inválido (${sample.schemaVersion}). Requer schemaVersion = 2 (Causal S_t -> A_t).`;
+  if (sample.schemaVersion !== config.VERSIONS.SCHEMA_VERSION) {
+    return `Sample #${idx}: schemaVersion inválido (${sample.schemaVersion}). Requer schemaVersion = ${config.VERSIONS.SCHEMA_VERSION} (Causal S_t -> A_t).`;
   }
 
   const meta = sample.metadata;

@@ -5,6 +5,7 @@ import http from 'http';
 import { createApp } from '../server/src/app.js';
 import { db } from '../server/src/db/pool.js';
 import { createTelemetrySample } from '../src/ml/telemetry/telemetrySchema.js';
+import { TELEMETRY_LINEAGE_VERSIONS } from '../src/ml/lineage/baselineManifest.js';
 
 let passed = 0;
 let failed = 0;
@@ -125,10 +126,10 @@ server.listen(0, '127.0.0.1', async () => {
           sampleRateHz: 10,
           scope: 'PLAYER_ONLY',
           client: {
-            gameBuildVersion: '0.2.0-ml2',
-            trackGeometryVersion: '1.5.0-centripetal',
-            physicsVersion: '1.5.0-gt3',
-            featureManifestVersion: '2.1.0'
+            gameBuildVersion: TELEMETRY_LINEAGE_VERSIONS.GAME_BUILD_VERSION,
+            trackGeometryVersion: TELEMETRY_LINEAGE_VERSIONS.TRACK_GEOMETRY_VERSION,
+            physicsVersion: TELEMETRY_LINEAGE_VERSIONS.PHYSICS_VERSION,
+            featureManifestVersion: TELEMETRY_LINEAGE_VERSIONS.FEATURE_MANIFEST_VERSION
           },
           consentVersion: '1.0.0'
         })

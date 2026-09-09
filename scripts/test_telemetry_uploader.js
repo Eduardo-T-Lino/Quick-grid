@@ -4,6 +4,7 @@
 import { OnlineTelemetryUploader } from '../src/ml/telemetry/telemetryUploader.js';
 import { createTelemetrySample } from '../src/ml/telemetry/telemetrySchema.js';
 import { telemetryIndexedDB } from '../src/ml/telemetry/telemetryIndexedDB.js';
+import { SIMULATION_FINGERPRINT_SHA256, TELEMETRY_LINEAGE_VERSIONS } from '../src/ml/lineage/baselineManifest.js';
 
 let passed = 0;
 let failed = 0;
@@ -111,9 +112,12 @@ async function runUploaderTests() {
 
     assert(sId === 'sess_ml21_mock_123', 'Retorna serverSessionId da API');
     assert(uploader.serverSessionId === 'sess_ml21_mock_123', 'serverSessionId armazenado no uploader');
-    assert(sessionPayloadCaptured.schemaVersion === 2, 'Envia schemaVersion = 2');
-    assert(sessionPayloadCaptured.client.gameBuildVersion === '0.2.0-ml2', 'Envia gameBuildVersion oficial');
-    assert(sessionPayloadCaptured.client.trackGeometryVersion === '1.5.0-centripetal', 'Envia trackGeometryVersion oficial');
+    assert(sessionPayloadCaptured.schemaVersion === TELEMETRY_LINEAGE_VERSIONS.SCHEMA_VERSION, 'Envia schemaVersion canônico');
+    assert(sessionPayloadCaptured.client.gameBuildVersion === TELEMETRY_LINEAGE_VERSIONS.GAME_BUILD_VERSION, 'Envia gameBuildVersion canônico');
+    assert(sessionPayloadCaptured.client.trackGeometryVersion === TELEMETRY_LINEAGE_VERSIONS.TRACK_GEOMETRY_VERSION, 'Envia trackGeometryVersion canônico');
+    assert(sessionPayloadCaptured.client.physicsVersion === TELEMETRY_LINEAGE_VERSIONS.PHYSICS_VERSION, 'Envia physicsVersion canônico');
+    assert(sessionPayloadCaptured.client.featureManifestVersion === TELEMETRY_LINEAGE_VERSIONS.FEATURE_MANIFEST_VERSION, 'Envia featureManifestVersion canônico');
+    assert(sessionPayloadCaptured.clientInfo.simulationFingerprintSha256 === SIMULATION_FINGERPRINT_SHA256, 'Envia simulation fingerprint canônico em clientInfo');
 
 
     // ----------------------------------------------------

@@ -134,10 +134,10 @@ server.listen(0, '127.0.0.1', async () => {
       sampleRateHz: 10,
       scope: 'PLAYER_ONLY',
       client: {
-        gameBuildVersion: '0.2.0-ml2',
-        trackGeometryVersion: '1.5.0-centripetal',
-        physicsVersion: '1.5.0-gt3',
-        featureManifestVersion: '2.1.0'
+        gameBuildVersion: config.VERSIONS.GAME_BUILD_VERSION,
+        trackGeometryVersion: config.VERSIONS.TRACK_GEOMETRY_VERSION,
+        physicsVersion: config.VERSIONS.PHYSICS_VERSION,
+        featureManifestVersion: config.VERSIONS.FEATURE_MANIFEST_VERSION
       },
       consentVersion: '1.0.0'
     };
