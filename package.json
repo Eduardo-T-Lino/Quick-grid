@@ -19,6 +19,7 @@
     "test:db-tls": "node scripts/test_db_tls.js",
     "test:cloud-verification": "node scripts/test_cloud_telemetry_verification.js",
     "benchmark:ml22": "node scripts/benchmark_ml22_browser.js",
+    "verify:ml22:refresh": "node scripts/verify_production_token_refresh.js",
     "build": "vite build",
     "preview": "vite preview"
   },

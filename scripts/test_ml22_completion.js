@@ -153,9 +153,32 @@ async function main() {
       && decoded.at(-1).metadata.sampleIndex === stored.last_sample_index
       && decoded[0].metadata.timestamp === stored.first_timestamp
       && decoded.at(-1).metadata.timestamp === stored.last_timestamp, 'generated payload bounds and metadata match stored batch');
+    const refreshesBeforeExpiredComplete = refreshCalls;
+    expiry.expiresAt = new Date(Date.now() - 1000).toISOString();
     await expiry.endSession({ completedLaps: 999 });
+    check(refreshCalls === refreshesBeforeExpiredComplete + 1,
+      'endSession refreshes proactively when expiresAt is already expired');
     check(getPool().sessions.get(expiryId).completed_laps === 1, 'complete cannot overwrite persisted lap count with client estimate');
     expiry.dispose(); globalThis.fetch = originalFetch;
+
+    const complete401 = uploader();
+    const complete401Id = await complete401.initSession(21);
+    let completeAttempts = 0, completeRefreshes = 0;
+    globalThis.fetch = async (url, opts) => {
+      if (url.endsWith('/refresh-token')) completeRefreshes++;
+      if (url.endsWith('/complete')) {
+        completeAttempts++;
+        if (completeAttempts === 1) return new Response(JSON.stringify({ error: 'CONTROLLED_401' }), {
+          status: 401, headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return originalFetch(url, opts);
+    };
+    const complete401Result = await complete401.endSession();
+    check(complete401Result.completed && completeAttempts === 2 && completeRefreshes === 1
+      && getPool().sessions.get(complete401Id).status === 'COMPLETED',
+    'endSession refreshes after complete 401 and retries completion once');
+    complete401.dispose(); globalThis.fetch = originalFetch;
 
     const lost = uploader();
     const lostId = await lost.initSession(21);

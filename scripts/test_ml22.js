@@ -1,6 +1,7 @@
 import http from 'http';
 import { spawnSync } from 'child_process';
 import { createApp } from '../server/src/app.js';
+import { createIngestToken, verifyIngestToken } from '../server/src/security/ingestToken.js';
 import { OnlineTelemetryUploader } from '../src/ml/telemetry/telemetryUploader.js';
 import { telemetryIndexedDB } from '../src/ml/telemetry/telemetryIndexedDB.js';
 
@@ -38,14 +39,39 @@ async function run() {
   const created = await request(server, '/api/v1/telemetry/sessions', 'POST', sessionPayload);
   assert(created.status === 201 && created.body.refreshCredential, 'criação emite refresh credential separada');
   const id = created.body.sessionId;
+  const other = await request(server, '/api/v1/telemetry/sessions', 'POST', sessionPayload);
+  assert(other.status === 201, 'segunda sessão ativa criada para provas de isolamento');
   const noProof = await request(server, `/api/v1/telemetry/sessions/${id}/refresh-token`, 'POST');
   assert(noProof.status === 401, 'sessionId sozinho não renova token');
   const tampered = await request(server, `/api/v1/telemetry/sessions/${id}/refresh-token`, 'POST', null,
     { 'x-refresh-credential': `${created.body.refreshCredential}x` });
   assert(tampered.status === 401, 'credencial adulterada é rejeitada');
+  const wrongPurpose = await request(server, `/api/v1/telemetry/sessions/${id}/refresh-token`, 'POST', null,
+    { 'x-refresh-credential': created.body.ingestToken });
+  assert(wrongPurpose.status === 401, 'ingest token não pode ser usado como refresh credential');
+  const wrongRefreshSession = await request(server, `/api/v1/telemetry/sessions/${other.body.sessionId}/refresh-token`, 'POST', null,
+    { 'x-refresh-credential': created.body.refreshCredential });
+  assert(wrongRefreshSession.status === 401, 'refresh credential é vinculada à sessão original');
+  const expiredIngest = createIngestToken(id, -1).ingestToken;
+  const expiredBatch = await request(server, '/api/v1/telemetry/batches', 'POST', {
+    sessionId: id, batchSequence: 0, samples: []
+  }, { Authorization: `Bearer ${expiredIngest}` });
+  assert(expiredBatch.status === 401, 'ingest token expirado é rejeitado com 401');
+  const wrongSessionBatch = await request(server, '/api/v1/telemetry/batches', 'POST', {
+    sessionId: other.body.sessionId, batchSequence: 0, samples: []
+  }, { Authorization: `Bearer ${created.body.ingestToken}` });
+  assert(wrongSessionBatch.status === 401, 'ingest token de outra sessão é rejeitado com 401');
   const refreshed = await request(server, `/api/v1/telemetry/sessions/${id}/refresh-token`, 'POST', null,
     { 'x-refresh-credential': created.body.refreshCredential });
-  assert(refreshed.status === 200 && refreshed.body.ingestToken, 'proof correto renova ingest token');
+  assert(refreshed.status === 200 && refreshed.body.ingestToken !== created.body.ingestToken
+    && verifyIngestToken(refreshed.body.ingestToken, id).valid && typeof refreshed.body.expiresAt === 'string',
+  'proof correta em sessão ACTIVE emite novo ingest token válido');
+  const completed = await request(server, `/api/v1/telemetry/sessions/${id}/complete`, 'POST', {},
+    { Authorization: `Bearer ${refreshed.body.ingestToken}` });
+  assert(completed.status === 200 && completed.body.status === 'COMPLETED', 'novo ingest token autoriza conclusão da sessão');
+  const refreshCompleted = await request(server, `/api/v1/telemetry/sessions/${id}/refresh-token`, 'POST', null,
+    { 'x-refresh-credential': created.body.refreshCredential });
+  assert(refreshCompleted.status === 409, 'refresh de sessão COMPLETED é rejeitado com 409');
   const ready = await request(server, '/ready');
   assert(ready.status === 200, 'readiness consulta storage');
   await new Promise(resolve => server.close(resolve));
