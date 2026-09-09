@@ -59,7 +59,7 @@ Novas sessões anunciam as versões no registro normal de `telemetry_sessions` e
 | Benchmark ML2.2-H: `6bf94581-f632-4bd4-bbb1-50378db12f3f` | `INFRASTRUCTURE_ONLY` | Não | Execução automatizada C2 para performance/transporte; não é demonstração humana de qualidade. |
 | Benchmark ML2.2-H: `7ca52a2b-58a0-4bc2-81ec-ad4fc8a36d03` | `INFRASTRUCTURE_ONLY` | Não | Execução automatizada C3 para performance/transporte; não é demonstração humana de qualidade. |
 | Refresh ML2.2-I: `5d639195-4ebe-48ed-ada3-fb80a5ec128d` | `INFRASTRUCTURE_ONLY` | Não | Pilotagem automatizada e 401 deliberado para provar recovery; não representa qualidade humana. |
-| Smoke curto da nova lineage ML2.2-J | `INFRASTRUCTURE_ONLY` | Não | Serve apenas para confirmar metadata, batch e completion em produção. |
+| Smoke ML2.2-J: `d2d44255-6487-4210-9daa-2e19f2df5ff3` | `INFRASTRUCTURE_ONLY` | Não | Sessão automatizada curta, COMPLETED com 2 batches/58 samples; confirma metadata/fingerprint e entrega, não qualidade humana. |
 | Novos datasets humanos pós-freeze ML2.2-J | `TRAIN_ALLOWED` | Sim, condicional | Exigir versões/fingerprint deste documento, `PLAYER_ONLY`, consentimento, completion, continuidade e quality gate humano. |
 | Novos datasets automatizados pós-freeze ML2.2-J | `VALIDATION_ONLY` | Não por padrão | Podem validar pipeline/simulação; só viram demonstração de treino mediante política explícita futura, fora da ML2.2. |
 
