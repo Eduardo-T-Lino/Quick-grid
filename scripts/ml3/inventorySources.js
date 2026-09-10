@@ -4,7 +4,7 @@ import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 import pg from 'pg';
-import { analyzeSamples, completeSession, KNOWN_SESSIONS } from './inventoryCore.js';
+import { analyzeSamples, completeSession, distribution, KNOWN_SESSIONS } from './inventoryCore.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PUBLIC_API_DEFAULT = 'https://quick-grid-telemetry-api.onrender.com/api/v1/telemetry';
@@ -312,9 +312,11 @@ export const CLOUD_QUERIES = Object.freeze({
     game_build_version, track_geometry_version, physics_version, feature_manifest_version,
     status, received_samples, received_batches, completed_laps, client_info
     FROM public.telemetry_sessions WHERE id = $1::uuid ORDER BY id`,
-  batches: `SELECT session_id, batch_sequence, sample_count, payload_compressed
+  batches: `SELECT session_id, batch_sequence, sample_count, first_sample_index, last_sample_index,
+    first_timestamp, last_timestamp, payload_compressed
     FROM public.telemetry_batches ORDER BY session_id, batch_sequence`,
-  batchesBySession: `SELECT session_id, batch_sequence, sample_count, payload_compressed
+  batchesBySession: `SELECT session_id, batch_sequence, sample_count, first_sample_index, last_sample_index,
+    first_timestamp, last_timestamp, payload_compressed
     FROM public.telemetry_batches WHERE session_id = $1::uuid ORDER BY session_id, batch_sequence`,
   laps: `SELECT session_id, lap_number, lap_time, sample_count, off_track_count, collision_count,
     spin_count, average_speed, max_speed, valid_lap FROM public.telemetry_laps ORDER BY session_id, lap_number`,
@@ -364,17 +366,88 @@ export async function inventoryCloud({ databaseUrl = process.env.DATABASE_URL, s
     const sessions = sessionRows.map(row => {
       const batchRowsForSession = batchesBySession.get(String(row.id)) ?? [];
       const samples = [];
+      const payloadIntegrity = {
+        batchesTotal: batchRowsForSession.length,
+        gzipValid: 0, gzipInvalid: 0,
+        jsonValid: 0, jsonInvalid: 0,
+        arrayValid: 0, arrayInvalid: 0,
+        countMatch: 0, countMismatch: 0,
+        firstLastMetadataMatch: 0, firstLastMetadataMismatch: 0
+      };
+      const batchDetails = [];
       let payloadCorrupt = false;
       for (const batch of batchRowsForSession) {
+        const detail = {
+          batchSequence: finite(batch.batch_sequence),
+          declaredSampleCount: finite(batch.sample_count),
+          decodedSampleCount: null,
+          gzip: 'INVALID', json: 'NOT_EVALUATED', array: 'NOT_EVALUATED',
+          count: 'NOT_EVALUATED', firstLastMetadata: 'NOT_EVALUATED'
+        };
+        let raw, decoded;
         try {
-          const decoded = JSON.parse(gunzipSync(batch.payload_compressed).toString('utf8'));
-          if (!Array.isArray(decoded) || decoded.length !== finite(batch.sample_count)) payloadCorrupt = true;
-          else samples.push(...decoded);
-        } catch { payloadCorrupt = true; }
+          raw = gunzipSync(batch.payload_compressed);
+          payloadIntegrity.gzipValid++;
+          detail.gzip = 'VALID';
+        } catch {
+          payloadIntegrity.gzipInvalid++;
+          payloadCorrupt = true;
+          batchDetails.push(detail);
+          continue;
+        }
+        try {
+          decoded = JSON.parse(raw.toString('utf8'));
+          payloadIntegrity.jsonValid++;
+          detail.json = 'VALID';
+        } catch {
+          payloadIntegrity.jsonInvalid++;
+          payloadCorrupt = true;
+          detail.json = 'INVALID';
+          batchDetails.push(detail);
+          continue;
+        }
+        if (!Array.isArray(decoded)) {
+          payloadIntegrity.arrayInvalid++;
+          payloadCorrupt = true;
+          detail.array = 'INVALID';
+          batchDetails.push(detail);
+          continue;
+        }
+        payloadIntegrity.arrayValid++;
+        detail.array = 'VALID';
+        detail.decodedSampleCount = decoded.length;
+        if (decoded.length !== finite(batch.sample_count)) {
+          payloadIntegrity.countMismatch++;
+          payloadCorrupt = true;
+          detail.count = 'MISMATCH';
+        } else {
+          payloadIntegrity.countMatch++;
+          detail.count = 'MATCH';
+        }
+        const first = decoded[0]?.metadata;
+        const last = decoded.at(-1)?.metadata;
+        const timestampMatches = (stored, actual) => finite(stored) !== null && finite(actual) !== null
+          && Math.abs(finite(stored) - finite(actual)) <= 0.0005 + Math.max(1e-9, Math.abs(finite(actual)) * Number.EPSILON);
+        const metadataMatches = first && last
+          && finite(batch.first_sample_index) === finite(first.sampleIndex)
+          && finite(batch.last_sample_index) === finite(last.sampleIndex)
+          && timestampMatches(batch.first_timestamp, first.timestamp)
+          && timestampMatches(batch.last_timestamp, last.timestamp);
+        if (metadataMatches) {
+          payloadIntegrity.firstLastMetadataMatch++;
+          detail.firstLastMetadata = 'MATCH';
+        } else {
+          payloadIntegrity.firstLastMetadataMismatch++;
+          payloadCorrupt = true;
+          detail.firstLastMetadata = 'MISMATCH';
+        }
+        samples.push(...decoded);
+        batchDetails.push(detail);
       }
       const relationalLaps = lapsBySession.get(String(row.id)) ?? [];
       const qualitySignals = analyzeSamples(samples, {
-        batchSequences: batchRowsForSession.map(batch => batch.batch_sequence), relationalLaps
+        batchSequences: batchRowsForSession.map(batch => batch.batch_sequence), relationalLaps,
+        sampleRateHz: finite(row.sample_rate_hz) || 10
       });
       const declaredSamples = finite(row.received_samples);
       const declaredBatches = finite(row.received_batches);
@@ -384,12 +457,31 @@ export async function inventoryCloud({ databaseUrl = process.env.DATABASE_URL, s
       qualitySignals.structuralIntegrity.declaredBatchCount = declaredBatches;
       qualitySignals.structuralIntegrity.queriedBatchCount = batchRowsForSession.length;
       qualitySignals.structuralIntegrity.batchCountMismatch = declaredBatches !== batchRowsForSession.length;
+      qualitySignals.structuralIntegrity.schemaVersionMismatch = samples.filter(sample => sample?.schemaVersion !== finite(row.schema_version)).length;
+      qualitySignals.structuralIntegrity.trackIdMismatch = samples.filter(sample => sample?.metadata?.trackId !== finite(row.track_id)).length;
+      qualitySignals.structuralIntegrity.driverTypeInvalid = samples.filter(sample => !['PLAYER', 'BOT'].includes(sample?.metadata?.driverType)).length;
+      qualitySignals.payloadIntegrity = payloadIntegrity;
+      const batchSequences = batchRowsForSession.map(batch => finite(batch.batch_sequence)).filter(value => value !== null).sort((a, b) => a - b);
+      qualitySignals.batchIntegrity = {
+        sequenceMin: batchSequences.length ? batchSequences[0] : null,
+        sequenceMax: batchSequences.length ? batchSequences.at(-1) : null,
+        sequenceGaps: qualitySignals.temporalIntegrity.batchGaps,
+        sequenceDuplicates: qualitySignals.temporalIntegrity.batchSequenceDuplicates,
+        sampleCountDistribution: distribution(batchRowsForSession.map(batch => batch.sample_count)),
+        batches: batchDetails
+      };
       payloadCorrupt ||= qualitySignals.structuralIntegrity.sampleCountMismatch
-        || qualitySignals.structuralIntegrity.batchCountMismatch;
+        || qualitySignals.structuralIntegrity.batchCountMismatch
+        || qualitySignals.structuralIntegrity.schemaVersionMismatch > 0
+        || qualitySignals.structuralIntegrity.trackIdMismatch > 0
+        || qualitySignals.structuralIntegrity.driverTypeInvalid > 0;
+      const localIds = [...new Set(samples.map(sample => sample?.metadata?.sessionId)
+        .filter(value => typeof value === 'string' && value))];
       return completeSession({
         ...fromSessionRow(row),
         source: 'CLOUD_POSTGRES',
         collectionKind: KNOWN_SESSIONS[row.id]?.kind ?? 'UNKNOWN',
+        localCollectionSessionId: localIds.length === 1 ? localIds[0] : null,
         driverTypes: [...new Set(samples.map(sample => sample?.metadata?.driverType).filter(Boolean))],
         batchCount: batchRowsForSession.length,
         sampleCount: declaredSamples,
@@ -401,9 +493,18 @@ export async function inventoryCloud({ databaseUrl = process.env.DATABASE_URL, s
         evidence: ['postgres:READ_ONLY_REPEATABLE_READ', 'payload:GZIP_DECOMPRESSED_LOCALLY']
       });
     });
+    const integrityTotals = sessions.reduce((totals, session) => {
+      const integrity = session.qualitySignals?.payloadIntegrity;
+      if (!integrity) return totals;
+      for (const key of Object.keys(totals)) totals[key] += integrity[key] ?? 0;
+      return totals;
+    }, { gzipValid: 0, gzipInvalid: 0, jsonValid: 0, jsonInvalid: 0,
+      arrayValid: 0, arrayInvalid: 0, countMatch: 0, countMismatch: 0,
+      firstLastMetadataMatch: 0, firstLastMetadataMismatch: 0 });
     return { sessions, status: {
       source: 'CLOUD_POSTGRES', status: 'AVAILABLE_FULL', sessions: sessions.length,
       batches: batchRows.length, samples: sessions.reduce((sum, item) => sum + (item.sampleCount ?? 0), 0),
+      payloadIntegrity: integrityTotals,
       note: 'telemetry_sessions, telemetry_batches and telemetry_laps read in one read-only repeatable-read snapshot.'
     } };
   } catch (error) {
