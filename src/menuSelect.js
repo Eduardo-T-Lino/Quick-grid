@@ -10,7 +10,6 @@ const choices = {
   gameMode: { style: 'cards', items: [['Corrida', 'Dispute posições no grid', 'race'], ['Contrarrelógio', 'Supere seu melhor tempo', 'clock']] },
   trackCondition: { style: 'compact', items: [['Seca', 'Pneus slick', 'sun'], ['Molhada', 'Pista de chuva', 'rain']] },
   transMode: { style: 'compact', items: [['Automática', 'Troca assistida', 'auto'], ['Manual', 'Você nas marchas', 'manual']] },
-  botCount: { style: 'numbers', items: [['1', 'Duelo'], ['3', 'Grid curto'], ['19', 'Grid completo']] }
 };
 const difficultyNotes = ['Um ritmo mais tranquilo para começar.', 'Mais ritmo e disputa por cada posição.', 'O ritmo mais forte dos adversários.'];
 function icon(name) {

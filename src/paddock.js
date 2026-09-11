@@ -1,5 +1,5 @@
 import { initTrackPicker, trackDisplayName } from './trackPicker.js';
-import { normalizeLaps } from './raceSettings.js';
+import { normalizeLaps, normalizeBots } from './raceSettings.js';
 
 // Presentation-only controller. Existing select IDs/values remain the game's source of truth.
 export function createTrackPreview(track) {
@@ -56,6 +56,18 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
     byId('circuit-weather').textContent = selected('trackCondition') === 'wet' ? 'CHUVA' : 'SECA';
     byId('circuit-weather').style.color = selected('trackCondition') === 'wet' ? '#8fb5ff' : '';
     byId('botCount').disabled = ghost;
+    const bots = normalizeBots(selected('botCount'));
+    byId('bot-summary').textContent = ghost ? 'Você contra o relógio' : `${bots + 1} carros no grid`;
+    byId('botRange').value = bots;
+    byId('botRange').disabled = ghost;
+    byId('botRange').style.setProperty('--lap-fill', `${(bots - 1) / 18 * 100}%`);
+    byId('botRange').setAttribute('aria-valuetext', `${bots} bots`);
+    byId('bots-less').disabled = ghost || bots <= 1;
+    byId('bots-more').disabled = ghost || bots >= 19;
+    document.querySelectorAll('[data-bots]').forEach(button => {
+      button.disabled = ghost;
+      button.setAttribute('aria-pressed', String(Number(button.dataset.bots) === bots));
+    });
     byId('botDifficulty').disabled = ghost;
     updateDistance();
   }
@@ -80,6 +92,13 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
   document.querySelectorAll('[data-laps]').forEach(button => button.addEventListener('click', () => setLaps(button.dataset.laps)));
   setLaps(laps.value);
 
+  function setBots(value) { byId('botCount').value = normalizeBots(value); updateSession(); }
+  byId('botCount').addEventListener('change', () => setBots(selected('botCount')));
+  byId('bots-less').addEventListener('click', () => setBots(Number(selected('botCount')) - 1));
+  byId('bots-more').addEventListener('click', () => setBots(Number(selected('botCount')) + 1));
+  byId('botRange').addEventListener('input', event => setBots(event.target.value));
+  document.querySelectorAll('[data-bots]').forEach(button => button.addEventListener('click', () => setBots(button.dataset.bots)));
+
   const dialog = byId('controls-dialog');
   byId('controls-open').addEventListener('click', () => dialog.showModal());
   dialog.addEventListener('click', event => {
@@ -99,6 +118,7 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
     const button = byId('start-race');
     if (button.disabled) return;
     setLaps(laps.value);
+    setBots(selected('botCount'));
     button.disabled = true;
     button.setAttribute('aria-busy', 'true');
     byId('start-label').textContent = 'PREPARANDO O GRID';

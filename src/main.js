@@ -4,6 +4,11 @@ import './styles/trackPicker.css';
 import './styles/race.css';
 import './styles/menus.css';
 import './styles/raceSetup.css';
+import './styles/auth.css';
+import './styles/hud.css';
+import './styles/online.css';
+import { initOnline } from './online/ui.js';
+import { initAuth } from './auth.js';
 import { initSessionControls } from './sessionControls.js';
 import { initRecordsView } from './recordsView.js';
 import { initMenuSelects } from './menuSelect.js';
@@ -67,10 +72,10 @@ function populateTrackSelect() {
 // ========== EVENT LISTENERS ==========
 window.addEventListener('keydown', e => {
   if (e.target.closest?.('input, select, textarea, [contenteditable="true"]') || state.isPaused || document.querySelector('dialog[open]')) return;
-  if (state.isRunning && ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+  if (state.isRunning && ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
   state.keys[e.code] = true;
   if (state.isRunning && state.racePhase === 'racing' && state.cars.length > 0 && !state.cars[0].isBot && !state.cars[0].finished) {
-    if (!state.cars[0].isAuto) {
+    if (!state.onlineSession && !state.cars[0].isAuto) {
       if (e.code === 'ArrowUp') state.cars[0].shiftUp();
       if (e.code === 'ArrowDown') state.cars[0].shiftDown();
     }
@@ -94,3 +99,5 @@ initMenuSelects();
 initRecordsView(F1_TRACKS);
 initSessionControls();
 initTelemetryConsent();
+initAuth();
+initOnline();

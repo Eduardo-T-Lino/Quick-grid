@@ -1,0 +1,151 @@
+/* Private paddock: static surfaces, no blur over a racing canvas. */
+.online-dialog { --online-line:#303946; width:min(1080px,calc(100vw - 40px)); max-height:calc(100dvh - 40px); margin:auto; padding:0; overflow:auto; border:1px solid #455266; border-radius:8px; background:#11161e; color:#eff1f5; font:14px/1.5 'Segoe UI',sans-serif; text-align:left; scrollbar-color:#47566d #141a24; box-shadow:0 24px 90px #0008; }
+.online-dialog::backdrop { background:#04070ed9; }
+.online-dialog [hidden], #online-race-note[hidden] { display:none !important; }
+.online-dialog h2,.online-dialog h3,.online-dialog p,.online-dialog label { margin:0; text-shadow:none; }
+.online-dialog h3 { color:#f0f1f5; }
+.online-dialog p,.online-dialog small { color:#a0adbf; }
+.online-dialog button { width:auto; min-height:42px; padding:10px 16px; border:1px solid #455269; border-radius:4px; background:#202a39; color:#e7edf8; font:700 11px/1.4 'Segoe UI',sans-serif; letter-spacing:.4px; cursor:pointer; transition:background-color .12s,border-color .12s; }
+.online-dialog button:hover { border-color:#86aaff; background:#293a53; }
+.online-dialog button:disabled { opacity:.4; cursor:not-allowed; }
+.online-dialog button:focus-visible,.online-dialog input:focus-visible { outline:2px solid #a7c3ff; outline-offset:3px; }
+.online-dialog button.online-primary { background:#eb423c; border-color:#eb423c; color:#fff; }
+.online-dialog button.online-primary:hover { background:#ff5550; border-color:#ff7771; }
+.online-dialog .online-header { display:flex; align-items:center; gap:26px; padding:25px 32px 22px; border-top:4px solid #ed4841; border-bottom:1px solid var(--online-line); background:#171d27; }
+.online-header > div { flex:1; min-width:0; }
+.online-dialog .online-eyebrow { font:700 10px/1.4 'Segoe UI',sans-serif; letter-spacing:2px; color:#b1bbca; }
+.online-eyebrow span { color:#f0534d; padding:0 8px; }
+.online-dialog h2 { margin:8px 0 1px; font:800 clamp(25px,3.4vw,42px)/1.05 var(--display); letter-spacing:-1px; }
+.online-title-dot { color:#f04c45; }
+.online-header p { font-size:12px; }
+.online-private { display:flex; align-items:center; gap:8px; color:#8494a9; font:700 9px monospace; letter-spacing:1px; }
+.online-private b { font-size:27px; font-weight:400; color:#86abff; }
+#online-close { flex:0 0 38px; min-height:38px; padding:0; background:transparent; font-size:25px; line-height:1; border-color:#3b4657; }
+#online-status { padding:10px 32px; border-bottom:1px solid var(--online-line); color:#a6b6cb; background:#121a27; font-size:11px; min-height:37px; }
+#online-entry,#online-room { padding:24px 32px 28px; }
+.online-identity { display:grid; grid-template-columns:1fr 1fr; gap:28px; margin-bottom:24px; }
+.online-dialog label,.online-label { display:block; color:#8e9fb7; font:700 10px/1.4 'Segoe UI',sans-serif; letter-spacing:1.1px; }
+.online-dialog input { width:100%; padding:12px 14px; min-height:46px; margin-top:8px; border:1px solid #43516a; border-radius:4px; background:#1c2430; color:#f0f3fa; font:600 15px/1.4 'Segoe UI',sans-serif; user-select:text; }
+.online-segments { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:3px; border:1px solid var(--online-line); border-radius:5px; background:#0d121b; margin-top:8px; }
+.online-segments button { min-height:39px; border-color:transparent; background:transparent; color:#899bb5; }
+.online-segments button[aria-checked=true] { color:#e4edff; background:#2c4266; border-color:#526f9d; }
+.online-columns { display:grid; grid-template-columns:1.5fr 1fr; gap:28px; }
+.online-section-index { font:700 9px/1.4 monospace; letter-spacing:1.5px; color:#8498b3; }
+.online-dialog .online-columns h3 { font:700 26px/1.2 var(--display); letter-spacing:-.5px; margin:6px 0 18px; }
+.online-create-panel { padding-right:28px; border-right:1px solid var(--online-line); }
+.online-formats { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.online-formats button { position:relative; display:grid; justify-items:start; text-align:left; gap:6px; min-height:126px; background:#191f29; border-color:#354154; padding:14px; }
+.online-formats button[aria-checked=true] { background:#1c2d47; border-color:#608bd1; box-shadow:inset 0 -3px #6797eb; }
+.online-formats strong { font-size:14px; letter-spacing:0; }
+.online-formats small { font:11px/1.5 'Segoe UI',sans-serif; letter-spacing:0; }
+.online-format-icon { font:28px/1 monospace; color:#8db5ff; }
+.online-formats i { position:absolute; top:14px; right:14px; width:12px; height:12px; border:1px solid #60728d; border-radius:50%; }
+.online-formats [aria-checked=true] i { background:#94b7f6; border:3px solid #2b456e; outline:1px solid #94b7f6; }
+.online-stage-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:15px; }
+.online-stage-row small { display:block; font-size:10px; font-weight:400; letter-spacing:0; padding-top:3px; }
+.online-stepper { display:grid; grid-template-columns:36px 44px 36px; gap:2px; border:1px solid #3b4960; padding:3px; border-radius:4px; }
+.online-stepper button { min-height:32px; padding:0; border:0; background:#24324a; font-size:20px; }
+.online-stepper input { min-height:32px; margin:0; padding:0; border:0; border-radius:0; text-align:center; background:transparent; font-size:19px; appearance:textfield; }
+.online-stepper input::-webkit-inner-spin-button,.online-stepper input::-webkit-outer-spin-button { appearance:none; }
+.online-dialog .online-config-summary { margin-top:17px; color:#b8c9e0; font-size:11px; padding:9px 0; border-top:1px solid #2b3749; border-bottom:1px solid #2b3749; }
+.online-dialog .online-rules { margin:12px 0 18px; font-size:11px; line-height:1.6; }
+#online-create,#online-join { display:flex; justify-content:space-between; align-items:center; width:100%; min-height:47px; }
+#online-create span,#online-join span { font-size:20px; line-height:1; }
+.online-join-panel { position:relative; overflow:hidden; }
+.online-join-panel > p { font-size:12px; max-width:220px; margin-bottom:24px; }
+.online-dialog #online-code { font:600 28px/1.5 monospace; letter-spacing:7px; text-transform:uppercase; background:#0d121b; padding:14px; border-style:dashed; margin-bottom:12px; }
+#online-code::placeholder { color:#586c86; }
+.online-join-panel > small { display:block; font-size:10px; line-height:1.7; margin-top:15px; }
+.online-join-decoration { color:#253248; font:italic 800 42px/1 var(--display); margin-top:18px; text-align:right; letter-spacing:-2px; }
+.online-room-heading { display:flex; align-items:center; gap:18px; padding-bottom:20px; }
+.online-room-heading small { font-size:9px; letter-spacing:1px; }
+#online-room-code { display:block; color:#dfe9ff; font:700 28px/1.2 monospace; letter-spacing:6px; user-select:text; }
+#online-copy { font-size:9px; min-height:33px; padding:6px 12px; }
+#online-ping { margin-left:auto; color:#92b0dc; font:11px monospace; }
+.online-room-layout { display:grid; grid-template-columns:258px minmax(0,1fr); gap:24px; border-top:1px solid var(--online-line); padding-top:20px; }
+.online-grid-panel { border-right:1px solid var(--online-line); padding-right:20px; }
+.online-grid-heading { display:flex; align-items:center; justify-content:space-between; padding:4px 0 13px; }
+.online-dialog .online-grid-heading h3 { font-size:10px; letter-spacing:1px; color:#a7b7cf; }
+#online-player-count { font:10px monospace; color:#90b5f3; }
+#online-players { list-style:none; display:grid; gap:5px; }
+#online-players li { display:grid; grid-template-columns:24px minmax(0,1fr) auto; align-items:center; gap:8px; border-left:3px solid; padding:10px 8px; background:#1c2431; }
+#online-players li.is-me { background:#253652; }
+.online-driver-place { font:15px monospace; color:#7189ae; }
+.online-driver-copy { min-width:0; }
+.online-driver-copy strong { display:block; font-size:11px; overflow-wrap:anywhere; }
+.online-driver-copy small { display:block; font-size:9px; }
+.online-driver-points { font:12px monospace; color:#b5cfff; }
+.online-event-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.online-dialog #online-phase { font:700 24px/1.2 var(--display); letter-spacing:-.3px; }
+#online-detail { font-size:11px; margin-top:7px; color:#94a7c2; }
+#online-vote-clock { font:700 25px/1 monospace; color:#f17570; white-space:nowrap; }
+#online-vote-progress { height:3px; background:#283246; margin-top:16px; }
+#online-vote-progress i { display:block; height:100%; width:100%; transform-origin:left; background:#ef5a51; }
+.online-track-preview { position:relative; padding:20px; margin-top:16px; background:#172130; border:1px solid #35445c; }
+.online-track-preview svg { width:100%; height:140px; }
+.online-track-preview path { stroke:#94b4ec; stroke-width:4; fill:none; }
+.online-track-preview strong { display:block; font:600 21px/1.2 var(--display); margin-top:4px; }
+.online-track-preview small { display:block; margin-top:5px; font-size:11px; }
+.online-votes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.online-votes:empty { display:none; }
+.online-votes button { display:flex; flex-direction:column; gap:10px; min-width:0; min-height:242px; padding:14px 12px; text-align:left; background:#172131; border-color:#35465f; }
+.online-votes button[aria-pressed=true] { border-color:#91b2ef; background:#243d61; box-shadow:inset 0 -3px #92b8ff; }
+.online-vote-number { font:10px monospace; color:#7d9ac6; }
+.online-votes svg { width:100%; height:95px; }
+.online-votes path { fill:none; stroke:#a6c6fa; stroke-width:4; stroke-linejoin:round; }
+.online-votes strong { font:600 17px/1.15 var(--display); letter-spacing:-.2px; overflow-wrap:anywhere; }
+.online-votes small { font:10px/1.4 'Segoe UI',sans-serif; letter-spacing:0; }
+.online-vote-count { display:flex; justify-content:space-between; width:100%; border-top:1px solid #3b4e6e; padding-top:10px; margin-top:auto; font-size:10px; }
+.online-vote-count b { color:#aacaff; }
+#online-results { margin-top:17px; }
+.online-result-row { display:grid; grid-template-columns:30px minmax(0,1fr) auto; gap:12px; padding:11px 14px; border-bottom:1px solid #2d3a4d; font-size:12px; }
+.online-result-row:first-child { background:#293b57; border-left:3px solid #97b7ed; }
+.online-result-row span:last-child { color:#aec5e8; font-variant-numeric:tabular-nums; }
+.online-dialog footer { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:24px; padding-top:18px; border-top:1px solid var(--online-line); }
+#online-ready[aria-pressed=true] { border-color:#8db4ec; background:#29466c; }
+#online-leave { margin-left:auto; color:#b6a1a6; background:transparent; border-color:#51414b; }
+#online-race-note { position:fixed; z-index:12; top:74px; right:24px; padding:6px 10px; border-left:2px solid #669cf5; background:#111b2bea; color:#adc5e8; font:10px 'Segoe UI',sans-serif; pointer-events:none; }
+@media (max-width:800px) {
+.online-dialog { width:calc(100vw - 24px); max-height:calc(100dvh - 24px); }
+.online-dialog .online-header { padding:20px; gap:14px; }
+.online-private { display:none; }
+#online-entry,#online-room { padding:20px; }
+#online-status { padding:10px 20px; }
+.online-columns { grid-template-columns:1fr; gap:24px; }
+.online-create-panel { padding:0 0 24px; border-right:0; border-bottom:1px solid var(--online-line); }
+.online-join-decoration { display:none; }
+.online-room-layout { grid-template-columns:1fr; }
+.online-grid-panel { border-right:0; padding-right:0; }
+#online-players { grid-template-columns:1fr 1fr; }
+.online-room-heading { flex-wrap:wrap; gap:12px; }
+}
+@media (max-width:480px) {
+.online-identity { grid-template-columns:1fr; gap:15px; }
+.online-formats strong { font-size:12px; }
+.online-formats button { padding:11px; }
+.online-votes { grid-template-columns:1fr; }
+.online-votes button { display:grid; grid-template-columns:80px minmax(0,1fr); min-height:130px; }
+.online-votes svg { grid-column:1; grid-row:2 / 5; height:80px; }
+.online-vote-number { grid-column:1 / -1; }
+.online-vote-count { grid-column:2; }
+.online-driver-copy strong { font-size:10px; }
+.online-driver-place { font-size:12px; }
+#online-players li { grid-template-columns:16px minmax(0,1fr); padding:8px 5px; gap:4px; }
+.online-driver-points { grid-column:2; font-size:10px; }
+#online-race-note { top:auto; bottom:220px; right:10px; font-size:8px; max-width:150px; }
+}
+@media (min-width:801px) and (max-height:740px) {
+.online-dialog .online-header { padding:14px 28px; }
+.online-dialog h2 { font-size:32px; margin-top:5px; }
+#online-entry,#online-room { padding:16px 28px; }
+.online-identity { margin-bottom:16px; }
+.online-dialog .online-columns h3 { margin-bottom:12px; font-size:24px; }
+.online-formats button { min-height:104px; gap:4px; padding:11px 14px; }
+.online-dialog .online-rules { margin:8px 0 12px; font-size:10px; }
+.online-dialog .online-config-summary { margin-top:12px; padding:6px 0; }
+.online-join-panel > p { margin-bottom:14px; }
+.online-join-decoration { display:none; }
+.online-track-preview svg { height:100px; }
+.online-dialog footer { margin-top:16px; padding-top:12px; }
+}
+@media (prefers-reduced-motion:reduce) { .online-dialog button { transition:none; } }

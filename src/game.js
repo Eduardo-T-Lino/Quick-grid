@@ -13,7 +13,9 @@ import { getRenderBounds, withinRenderBounds } from './renderGeometry.js';
 import { raceStart, renderStartLights } from './raceStart.js';
 import { getCarSprite } from './carAppearance.js';
 import { renderPoses } from './renderPose.js';
-import { normalizeLaps, excludePauseTime } from './raceSettings.js';
+import { normalizeLaps, normalizeBots, excludePauseTime } from './raceSettings.js';
+import { updateAerodynamicWake } from './aerodynamics.js';
+import { getPilotName } from './auth.js';
 
 // ========== SHARED GAME STATE ==========
 export const state = {
@@ -35,8 +37,9 @@ export const state = {
   racePhase: 'idle',
   raceFinished: false,
   gameMode: 'race',
-  transmissionMode: 'manual',
+  transmissionMode: 'auto',
   trackCondition: 'dry',
+  onlineSession: null,
 
   bestLapTime: null,
   bestLapPath: [],
@@ -146,7 +149,7 @@ function syncBotTrainingEndRace() {
 }
 
 // ========== COLLISIONS ==========
-function handleCarCollisions() {
+export function handleCarCollisions() {
   if (state.gameMode === 'ghost') return;
   for (let i = 0; i < state.cars.length; i++) {
     for (let j = i + 1; j < state.cars.length; j++) {
@@ -253,13 +256,16 @@ export function backToMenu() {
   document.getElementById('win-screen').style.display = 'none';
   document.getElementById('menu').style.display = 'block';
   state.isRunning = false;
+  state.onlineSession = null;
   document.getElementById('race-shortcuts').hidden = true;
   window.dispatchEvent(new Event('quick-grid:menu'));
 }
 
 export function pauseGame(now = performance.now()) {
+  if (state.onlineSession) { state.keys = {}; state.onlineSession.menu(); return false; }
   if (!state.isRunning || state.isPaused || state.raceFinished) return false;
   state.isPaused = true; state.pausedAt = now; state.keys = {};
+  for (const car of state.cars) car.boostActive = false;
   cancelAnimationFrame(animationFrameId); animationFrameId = null;
   return true;
 }
@@ -276,6 +282,7 @@ export function resumeGame(now = performance.now()) {
 
 let lastRaceSettings;
 export async function restartGame() {
+  if (state.onlineSession) { state.onlineSession.menu(); return; }
   if (!lastRaceSettings) return;
   const settings = { ...lastRaceSettings };
   backToMenu();
@@ -287,6 +294,7 @@ export async function startGame(settings) {
   if (state.isRunning || state.racePhase === 'loading') return;
   state.racePhase = 'loading';
   try {
+    state.onlineSession = settings?.onlineSession || null;
     const value = id => settings?.[id] ?? document.getElementById(id).value;
     state.gameMode = value('gameMode');
     state.transmissionMode = value('transMode');
@@ -302,7 +310,7 @@ export async function startGame(settings) {
     resizeCanvas();
     generateTrackPath(state.selectedTrack);
     // Independent requests prepare the grid together instead of blocking each other.
-    const [, botTrainingHistory, botOffsetMemory] = await Promise.all([
+    const [, botTrainingHistory, botOffsetMemory] = state.onlineSession ? [null, null, null] : await Promise.all([
       loadRecords(state.selectedTrack, state.totalLaps), fetchBotTrainingData(), fetchBotOffsetMemory()
     ]);
 
@@ -318,13 +326,19 @@ export async function startGame(settings) {
     if (state.timerInterval) clearInterval(state.timerInterval);
     document.getElementById('timer-box').style.display = 'none';
 
-    const numBots = (state.gameMode === 'race') ? parseInt(value('botCount')) : 0;
+    const numBots = (state.gameMode === 'race') ? normalizeBots(value('botCount')) : 0;
 
     // Carro do Jogador (P1): posicionado no ÚLTIMO slot do grid (index = numBots)
-    state.cars.push(new Car('#ff2222', 'Você (P1)', false, numBots, state.transmissionMode === 'auto'));
+    if (state.onlineSession) {
+      const session = state.onlineSession;
+      const grid = session.players.map((p, slot) => {
+        const car = new Car(p.color, p.name, false, slot, p.auto); car.id = p.id; return car;
+      });
+      state.cars = [grid.find(c => c.id === session.id), ...grid.filter(c => c.id !== session.id)];
+    } else state.cars.push(new Car('#ff2222', getPilotName(), false, numBots, state.transmissionMode === 'auto'));
 
     // Bots / Adversários: posicionados nos slots 0 até numBots - 1 (à frente do jogador)
-    if (state.gameMode === 'race') {
+    if (state.gameMode === 'race' && !state.onlineSession) {
       for (let i = 0; i < numBots; i++) {
         let bCfg = BOT_CONFIGS[i % BOT_CONFIGS.length];
         let botCar = new Car(bCfg.color, bCfg.name, true, i, true);
@@ -358,8 +372,8 @@ export async function startGame(settings) {
     cancelAnimationFrame(animationFrameId);
     physicsAccumulator = 0;
     lastFrameTime = performance.now();
-    raceStart.begin(lastFrameTime);
-    state.racePhase = 'countdown';
+    if (state.onlineSession) { raceStart.reset(); state.racePhase = 'loading'; }
+    else { raceStart.begin(lastFrameTime); state.racePhase = 'countdown'; }
     state.isRunning = true;
     document.getElementById('race-shortcuts').hidden = false;
     gameLoop();
@@ -379,8 +393,10 @@ function gameLoop(now = performance.now(), presentPaused = false) {
   animationFrameId = null;
   if (!state.isRunning || (state.isPaused && !presentPaused)) return;
   const frameStart = performance.now();
+  const online = state.onlineSession;
+  if (online) online.frame(now);
 
-  if (state.racePhase === 'countdown' && !state.isPaused) {
+  if (!online && state.racePhase === 'countdown' && !state.isPaused) {
     if (!document.hidden && raceStart.update(now)) {
       state.racePhase = 'racing';
       for (const car of state.cars) {
@@ -398,13 +414,14 @@ function gameLoop(now = performance.now(), presentPaused = false) {
   renderStartLights(raceStart, state.isPaused ? state.pausedAt : now);
 
   // Física fixa a 60 Hz: o carro tem a mesma resposta em telas de 60, 120 ou 144 Hz.
-  if (racing) physicsAccumulator += Math.min(100, now - lastFrameTime);
+  if (racing && !online) physicsAccumulator += Math.min(100, now - lastFrameTime);
   lastFrameTime = now;
   let physicsTickTime = now - physicsAccumulator; // Timestamp do início dos ticks acumulados
   while (physicsAccumulator >= PHYSICS_STEP_MS) {
     // Capture ALL cars before advancing any of them; collisions still run on
     // the authoritative positions, never on the interpolated presentation.
     state.cars.forEach(car => renderPoses.capture(car));
+    updateAerodynamicWake(state.cars);
     state.cars.forEach(car => car.update());
     handleCarCollisions();
     physicsAccumulator -= PHYSICS_STEP_MS;
@@ -415,11 +432,12 @@ function gameLoop(now = performance.now(), presentPaused = false) {
     mlTelemetry.update(physicsTickTime, state);
     telemetryPerformance.recordCollector(performance.now() - collectorStart);
   }
-  if (racing) updateRanks();
+  if (racing && !online) updateRanks();
 
   const playerCar = state.cars[0];
   const renderAlpha = physicsAccumulator / PHYSICS_STEP_MS;
-  if (!state.isPaused) mainCamera.update(renderPoses.sample(playerCar, renderAlpha), canvas);
+  const samplePose = car => online ? online.samplePose(car, now) : renderPoses.sample(car, renderAlpha);
+  if (!state.isPaused) mainCamera.update(samplePose(playerCar), canvas);
 
   // 2. Limpar Tela
   ctx.fillStyle = '#060a08';
@@ -464,7 +482,7 @@ function gameLoop(now = performance.now(), presentPaused = false) {
   // Fantasmas e Carros
   if (state.racePhase === 'racing') drawGhosts(racing);
   state.cars.forEach(car => {
-    const pose = renderPoses.sample(car, renderAlpha);
+    const pose = samplePose(car);
     if (withinRenderBounds(pose, actorBounds)) car.draw(pose);
   });
   drawBotDebugOverlay(ctx); // Debug overlay (ativo apenas se window.DEBUG_BOT_AI = true)
@@ -474,7 +492,7 @@ function gameLoop(now = performance.now(), presentPaused = false) {
   // 4. Renderizar Elementos de Tela / HUD Fixos
   drawMinimap(ctx, canvas, state);
   updateHUD();
-  if (racing) checkRaceEnd();
+  if (racing && !online) checkRaceEnd();
 
   if (!state.isPaused) telemetryPerformance.recordFrame(performance.now() - frameStart, now);
 

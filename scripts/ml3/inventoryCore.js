@@ -3,7 +3,7 @@ import {
   BASELINE_MANIFEST,
   SIMULATION_FINGERPRINT_SHA256,
   stableSerialize
-} from '../../src/ml/lineage/baselineManifest.js';
+} from '../../src/ml/lineage/acceptedBaseline.js';
 
 export const INVENTORY_SCHEMA_VERSION = 1;
 export const ACCEPTED_GAME_BUILDS = Object.freeze(['0.2.0-ml2', '0.3.0-ml2']);

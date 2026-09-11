@@ -5,6 +5,7 @@ import { config, validateProductionConfig } from './config.js';
 import { createApp } from './app.js';
 import { runMigrations } from './db/migrator.js';
 import { db } from './db/pool.js';
+import { attachOnline } from './online/socket.js';
 
 async function startServer() {
   validateProductionConfig();
@@ -29,9 +30,12 @@ async function startServer() {
     console.log(`   - Ingestion API: http://localhost:${config.PORT}/api/v1/telemetry/sessions\n`);
   });
 
+  const online = attachOnline(server, { production: config.isProduction, allowedOrigins: config.CORS_ALLOWED_ORIGINS });
+
   // 4. Graceful Shutdown
   const shutdown = async (signal) => {
     console.log(`\n[SHUTDOWN] Sinal ${signal} recebido. Encerrando servidor graciosamente...`);
+    online.close();
     server.close(async () => {
       console.log('[SHUTDOWN] Listener HTTP encerrado.');
       try {

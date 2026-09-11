@@ -39,9 +39,11 @@ export function drawMinimap(ctx, canvas, state) {
 
   // 1. Fundo Glassmorphism Translúcido
   ctx.save();
-  ctx.translate(16, canvas.height - mapHeight - 16);
-  ctx.fillStyle = 'rgba(10, 14, 20, 0.88)';
-  ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+  const displayScale = Math.min(1, Math.max(0.3, (canvas.width - (canvas.width <= 480 ? 220 : 260)) / mapWidth));
+  ctx.translate(16, canvas.height - mapHeight * displayScale - (canvas.width <= 650 ? 216 : 16));
+  ctx.scale(displayScale, displayScale);
+  ctx.fillStyle = 'rgba(16, 25, 39, 0.96)';
+  ctx.strokeStyle = '#435470';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.roundRect(posX, posY, mapWidth, mapHeight, 10);
@@ -50,7 +52,7 @@ export function drawMinimap(ctx, canvas, state) {
 
   // Cabeçalho do Minimapa com Nome Oficial e Extensão Real em KM
   ctx.font = 'bold 10px sans-serif';
-  ctx.fillStyle = '#00e5ff';
+  ctx.fillStyle = '#9fc2ff';
   ctx.textAlign = 'left';
   const trackLoc = selectedTrackData ? selectedTrackData.location : 'Circuito GT3';
   const trackLen = selectedTrackData ? selectedTrackData.lengthKm : '';

@@ -1,5 +1,9 @@
 export const MIN_LAPS = 3;
 export const MAX_LAPS = 80;
+export function normalizeBots(value) {
+  const count = Number(value);
+  return Number.isFinite(count) ? Math.max(1, Math.min(19, Math.trunc(count))) : 19;
+}
 
 export function normalizeLaps(value) {
   const number = Number(value);

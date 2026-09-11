@@ -13,7 +13,8 @@ import {
 } from './ml3/inventoryCore.js';
 import { CLOUD_QUERIES, fetchPublicSessionMetadata, inventoryCloud } from './ml3/inventorySources.js';
 import { createInventory, parseArgs } from './ml3_inventory.js';
-import { SIMULATION_FINGERPRINT_SHA256, TELEMETRY_LINEAGE_VERSIONS } from '../src/ml/lineage/baselineManifest.js';
+import { SIMULATION_FINGERPRINT_SHA256, TELEMETRY_LINEAGE_VERSIONS } from '../src/ml/lineage/acceptedBaseline.js';
+import { TELEMETRY_LINEAGE_VERSIONS as RUNTIME_VERSIONS, SIMULATION_FINGERPRINT_SHA256 as RUNTIME_FINGERPRINT } from '../src/ml/lineage/baselineManifest.js';
 
 let passed = 0, failed = 0;
 function check(condition, label) {
@@ -61,6 +62,12 @@ async function main() {
     check(INVENTORY_SCHEMA_VERSION === 1 && TELEMETRY_LINEAGE_VERSIONS.SCHEMA_VERSION === 2
       && ACCEPTED_GAME_BUILDS.includes('0.2.0-ml2') && ACCEPTED_GAME_BUILDS.includes('0.3.0-ml2'),
     'accepted baseline versions and both human-policy build strata are explicit');
+
+    const revisedPhysics = compatible({ gameBuildVersion: RUNTIME_VERSIONS.GAME_BUILD_VERSION,
+      physicsVersion: RUNTIME_VERSIONS.PHYSICS_VERSION, simulationFingerprint: RUNTIME_FINGERPRINT });
+    check(revisedPhysics.lineageEligibility !== LINEAGE_ELIGIBILITY.COMPATIBLE
+      && revisedPhysics.finalTrainingDataset === false,
+    'new corner-traction physics is not silently accepted into the historical dataset baseline');
 
     const infrastructure = compatible({ sessionId: '014398f2-d1ce-4c40-8bcb-3a65a1008065', collectionKind: 'AUTOMATIC' });
     check(infrastructure.lineageEligibility === LINEAGE_ELIGIBILITY.INFRASTRUCTURE_ONLY

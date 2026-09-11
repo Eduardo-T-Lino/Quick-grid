@@ -73,21 +73,22 @@
 .laps-field { padding: 12px 15px; border: 1px solid #384b66; border-radius: 5px; background: #182438; }
 .laps-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 #menu .laps-heading label { margin-bottom: 7px; font-size: 9px; letter-spacing: .8px; }
-#lap-distance { color: #8da9d1; font: 11px 'Segoe UI', sans-serif; }
+#lap-distance, #bot-summary { color: #8da9d1; font: 11px 'Segoe UI', sans-serif; }
 .lap-stepper { display: flex; align-items: center; flex: none; gap: 4px; min-height: 43px; border: 0; background: none; overflow: visible; }
 .lap-stepper:focus-within { outline: none; }
 .lap-stepper button { display: flex; justify-content: center; align-items: center; width: 29px; height: 32px; border: 1px solid #4b6487; border-radius: 4px; background: #263b59; color: #c4dbff; font: 400 21px 'Segoe UI', sans-serif; cursor: pointer; }
 .lap-stepper button:hover { background: #395884; border-color: #7da4e0; }
 .lap-stepper button:disabled { opacity: .35; cursor: default; }
 .lap-value { width: 48px; display: flex; flex-direction: column; align-items: center; }
-#lapCount { width: 48px; border: 0; border-radius: 3px; background: transparent; padding: 0; color: white; text-align: center; font: 650 29px/1 var(--display); appearance: textfield; -moz-appearance: textfield; }
-#lapCount:focus-visible { outline: 2px solid #a8caff; outline-offset: 1px; background: #2b4264; }
-#lapCount::-webkit-inner-spin-button, #lapCount::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#lapCount, #botCount { width: 48px; border: 0; border-radius: 3px; background: transparent; padding: 0; color: white; text-align: center; font: 650 29px/1 var(--display); appearance: textfield; -moz-appearance: textfield; }
+#lapCount:focus-visible, #botCount:focus-visible { outline: 2px solid #a8caff; outline-offset: 1px; background: #2b4264; }
+#lapCount::-webkit-inner-spin-button, #lapCount::-webkit-outer-spin-button, #botCount::-webkit-inner-spin-button, #botCount::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .lap-value > span { color: #a6b9d4; font: 7px 'Segoe UI', sans-serif; letter-spacing: 1.1px; margin-top: 3px; }
-#lapRange { --lap-fill: 0%; appearance: none; display: block; width: 100%; height: 24px; margin: 5px 0 3px; border: 0; border-radius: 3px; background: linear-gradient(to right, #79aaff var(--lap-fill), #364964 var(--lap-fill)) center / 100% 5px no-repeat; cursor: pointer; }
-#lapRange::-webkit-slider-thumb { appearance: none; width: 15px; height: 15px; border-radius: 50%; border: 3px solid #dae7ff; background: #477fe0; box-shadow: 0 0 0 4px #79aaff19; }
-#lapRange::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: 3px solid #dae7ff; background: #477fe0; }
-#lapRange:focus-visible { outline: 2px solid #b2ceff; outline-offset: 6px; }
+#lapRange, #botRange { --lap-fill: 0%; appearance: none; display: block; width: 100%; height: 24px; margin: 5px 0 3px; border: 0; border-radius: 3px; background: linear-gradient(to right, #79aaff var(--lap-fill), #364964 var(--lap-fill)) center / 100% 5px no-repeat; cursor: pointer; }
+#lapRange::-webkit-slider-thumb, #botRange::-webkit-slider-thumb { appearance: none; width: 15px; height: 15px; border-radius: 50%; border: 3px solid #dae7ff; background: #477fe0; box-shadow: 0 0 0 4px #79aaff19; }
+#lapRange::-moz-range-thumb, #botRange::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; border: 3px solid #dae7ff; background: #477fe0; }
+#lapRange:focus-visible, #botRange:focus-visible { outline: 2px solid #b2ceff; outline-offset: 6px; }
+#bots-field :disabled { opacity: .4; cursor: default; }
 .lap-presets { display: flex; justify-content: space-between; gap: 5px; }
 .lap-presets button { width: 36px; min-height: 24px; border: 1px solid transparent; border-radius: 3px; padding: 3px 7px; background: none; color: #a1b4d1; font: 11px Consolas, monospace; cursor: pointer; }
 .lap-presets button:hover { background: #263e62; color: #e2edff; }
