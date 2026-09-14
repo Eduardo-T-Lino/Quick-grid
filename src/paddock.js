@@ -100,7 +100,6 @@ export function initPaddock({ tracks, startGame, clearRecords, toggleModeUI }) {
   document.querySelectorAll('[data-bots]').forEach(button => button.addEventListener('click', () => setBots(button.dataset.bots)));
 
   const dialog = byId('controls-dialog');
-  byId('controls-open').addEventListener('click', () => dialog.showModal());
   dialog.addEventListener('click', event => {
     if (event.target !== dialog) return;
     const box = dialog.getBoundingClientRect();

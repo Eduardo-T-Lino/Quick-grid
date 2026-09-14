@@ -19,12 +19,17 @@
     // Import in the peer realm to obtain its independent module graph, not the parent's.
     peerState = await peer.contentWindow.eval(`import(${JSON.stringify(url(peer.contentWindow, '/src/game.js'))}).then(m=>m.state)`);
     el('online-open').click(); el('online-name').value = 'Host de Teste';
-    el('online-format').value = 'tournament'; el('online-format').dispatchEvent(new Event('change'));
+    document.querySelector('[data-online-select="online-format"] [data-value="tournament"]').click();
+    assert(!el('online-rounds-label').hidden, 'Tournament card exposes stage stepper');
+    el('online-rounds').value = '2'; el('online-rounds').dispatchEvent(new Event('input')); el('online-rounds-minus').click();
+    assert(el('online-rounds').value === '2' && el('online-rounds-minus').disabled, 'Stage stepper respects minimum');
+    el('online-rounds').value = '12'; el('online-rounds').dispatchEvent(new Event('input')); el('online-rounds-plus').click();
+    assert(el('online-rounds').value === '12' && el('online-rounds-plus').disabled, 'Stage stepper respects maximum');
     el('online-rounds').value = '2'; el('online-create').click();
     await wait(() => !el('online-room').hidden, 'host created room');
     const code = el('online-room-code').textContent;
     assert(/^[A-F0-9]{6}$/.test(code), 'Guest host creates a private room through the real UI');
-    other('online-open').click(); other('online-name').value = 'Amigo de Teste'; other('online-auto').value = 'manual';
+    other('online-open').click(); other('online-name').value = 'Amigo de Teste'; peer.contentDocument.querySelector('[data-online-select="online-auto"] [data-value="manual"]').click();
     other('online-code').value = code; other('online-join').click();
     await wait(() => other('online-players').children.length === 2 && el('online-players').children.length === 2, 'both joined');
     assert(other('online-start').disabled && !el('online-start').disabled, 'Only host can start');
@@ -35,7 +40,11 @@
     const ids = [...el('online-votes').children].map(n => n.dataset.trackId);
     assert(new Set(ids).size === 3, 'Tournament shows three distinct random tracks');
     assert(ids.join() === [...other('online-votes').children].map(n => n.dataset.trackId).join(), 'Both players see the same ballot');
-    el('online-votes').children[1].click(); other('online-votes').children[1].click();
+    if (typeof window.__onlineReviewCapture === 'function') await window.__onlineReviewCapture();
+    const voteButton = el('online-votes').children[1]; voteButton.focus(); voteButton.click();
+    await wait(() => voteButton.getAttribute('aria-pressed') === 'true', 'vote acknowledged');
+    assert(el('online-votes').children[1] === voteButton && document.activeElement === voteButton, 'Vote updates preserve card identity and keyboard focus');
+    other('online-votes').children[1].click();
     await wait(() => state.isRunning && peerState.isRunning && state.racePhase === 'countdown', 'synchronized grid');
     assert(state.selectedTrack === Number(ids[1]) && peerState.selectedTrack === Number(ids[1]), 'Winning track loads for both clients');
     assert(state.cars.length === 2 && peerState.cars.length === 2 && state.cars[0].id !== peerState.cars[0].id, 'Each guest controls their own car in the shared grid');
@@ -64,7 +73,7 @@
     assert(el('online-dialog').open && !state.isPaused, 'ESC opens online menu without pausing the shared race');
     assert(!onlineUploader.consentEnabled && !mlTelemetry.enabled, 'Online race does not enable or submit ML telemetry');
     el('online-leave').click();
-    await wait(() => other('online-players').textContent.includes('Amigo de Teste · você · anfitrião'), 'host migration');
+    await wait(() => [...other('online-players').children].some(row => row.querySelector('strong')?.textContent.includes('Amigo de Teste · você') && row.querySelector('small')?.textContent.includes('anfitrião')), 'host migration');
     assert(true, 'Remaining player receives host ownership');
     return { passed: checks.length, checks };
   } finally {

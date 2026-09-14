@@ -76,6 +76,7 @@ export function initOnline() {
     }));
     const voting = room.phase === 'voting', key = voting ? `${room.round}/${room.candidates.join(',')}` : '';
     el('online-vote-clock').hidden = !voting; el('online-vote-progress').hidden = !voting;
+    if (voting) el('online-vote-clock').textContent = `${Math.max(0, Math.ceil(room.remainingMs / 1000))}s`;
     // Do not destroy keyboard focus or rebuild SVG paths when another player votes.
     if (key !== ballotKey) { el('online-votes').replaceChildren(); ballotKey = key;
     if (voting) for (const [i, id] of room.candidates.entries()) {
@@ -146,10 +147,6 @@ export function initOnline() {
   client.addEventListener('left', () => { setBusy(false); lastPhase = null; ballotKey = ''; el('online-votes').replaceChildren(); el('online-entry').hidden = false; el('online-room').hidden = true;
     el('online-race-note').hidden = true; el('start-race').disabled = false; });
   window.addEventListener('quick-grid:menu', () => { if (running(client.room) && !client.transitioning) client.leave(); });
-  window.addEventListener('keydown', event => {
-    if (!state.onlineSession || document.querySelector('dialog[open]') || event.repeat) return;
-    if (event.code === 'ArrowUp' || event.code === 'ArrowDown') client.shift = event.code === 'ArrowUp' ? 1 : -1;
-  });
   setInterval(() => {
     const room = client.room;
     if (room?.phase === 'voting') {
