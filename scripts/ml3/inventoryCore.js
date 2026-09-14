@@ -43,12 +43,17 @@ export const KNOWN_SESSIONS = Object.freeze({
 
 export const NUMERIC_PATHS = Object.freeze([
   'driverAction.steering', 'driverAction.throttle', 'driverAction.brake',
-  'carState.speed', 'carState.crossTrackError', 'carState.headingError',
-  'carState.slipAngle', 'carState.yawRate', 'trackState.distanceToLeftEdge',
-  'trackState.distanceToRightEdge', 'trackState.currentCurvature'
+  'carState.speed', 'carState.forwardVelocity', 'carState.lateralVelocity',
+  'carState.yawRate', 'carState.slipAngle', 'carState.steeringAngle',
+  'carState.crossTrackError', 'carState.headingError',
+  'trackState.distanceToLeftEdge', 'trackState.distanceToRightEdge',
+  'trackState.currentCurvature', 'trackState.futureCurvature5m',
+  'trackState.futureCurvature10m', 'trackState.futureCurvature20m',
+  'trackState.trackProgress'
 ]);
 
 const BASELINE = BASELINE_MANIFEST.lineage;
+const SESSION_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CREDENTIAL_KEY = /(password|passwd|secret|token|credential|authorization|cookie|database[_-]?url|connectionstring|private[_-]?key)/i;
 
 function finite(value) {
@@ -107,10 +112,74 @@ function countEpisodes(flags) {
   return { sampleCount: samples, episodeCount: episodes, longestEpisodeSamples: longest };
 }
 
+function percentage(count, total) {
+  return total > 0 ? round(100 * count / total) : null;
+}
+
+function eventIntervals(samples, eventKey, sampleRateHz) {
+  const intervals = [];
+  let start = null;
+  const close = end => {
+    if (start === null) return;
+    const first = samples[start]?.metadata || {};
+    const last = samples[end]?.metadata || {};
+    const firstTimestamp = finite(first.timestamp);
+    const lastTimestamp = finite(last.timestamp);
+    const sampleCount = end - start + 1;
+    const lapNumberStart = finite(first.lapNumber);
+    const lapNumberEnd = finite(last.lapNumber);
+    intervals.push({
+      startSampleIndex: finite(first.sampleIndex),
+      endSampleIndex: finite(last.sampleIndex),
+      startTimestamp: firstTimestamp,
+      endTimestamp: lastTimestamp,
+      lapNumber: lapNumberStart !== null && lapNumberStart === lapNumberEnd ? lapNumberStart : null,
+      lapNumberStart,
+      lapNumberEnd,
+      sampleCount,
+      approximateDurationSeconds: round(firstTimestamp !== null && lastTimestamp !== null
+        ? ((lastTimestamp - firstTimestamp) / 1000) + (1 / sampleRateHz)
+        : sampleCount / sampleRateHz)
+    });
+    start = null;
+  };
+  for (let index = 0; index < samples.length; index++) {
+    if (samples[index]?.eventState?.[eventKey] === true && start === null) start = index;
+    if (samples[index]?.eventState?.[eventKey] !== true && start !== null) close(index - 1);
+  }
+  close(samples.length - 1);
+  return intervals;
+}
+
 function numericInvalidCount(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? 0 : 1;
   if (!value || typeof value !== 'object') return 0;
   return Object.values(value).reduce((sum, child) => sum + numericInvalidCount(child), 0);
+}
+
+function sampleIsStructurallyInvalid(sample) {
+  const progress = finite(sample?.trackState?.trackProgress);
+  const steering = finite(sample?.driverAction?.steering);
+  const throttle = finite(sample?.driverAction?.throttle);
+  const brake = finite(sample?.driverAction?.brake);
+  return numericInvalidCount(sample) > 0
+    || progress === null || progress < 0 || progress > 1.0001
+    || steering === null || steering < -1.0001 || steering > 1.0001
+    || throttle === null || throttle < -0.0001 || throttle > 1.0001
+    || brake === null || brake < -0.0001 || brake > 1.0001;
+}
+
+function categoricalDistribution(values, required = []) {
+  const counts = {};
+  for (const value of values) {
+    const key = typeof value === 'string' && value ? value : 'UNKNOWN';
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  for (const key of required) counts[key] ??= 0;
+  const total = values.length;
+  return Object.fromEntries(Object.keys(counts).sort().map(key => [key, {
+    count: counts[key], percent: percentage(counts[key], total)
+  }]));
 }
 
 function sampleIdentity(sample) {
@@ -158,17 +227,19 @@ function analyzeLaps(samples, relationalLaps = []) {
   });
 }
 
-export function analyzeSamples(samples, { batchSequences = [], relationalLaps = [] } = {}) {
+export function analyzeSamples(samples, { batchSequences = [], relationalLaps = [], sampleRateHz = 10 } = {}) {
   const validObjects = samples.filter(sample => sample && typeof sample === 'object' && !Array.isArray(sample));
   const timestamps = validObjects.map(sample => finite(sample?.metadata?.timestamp));
   const indices = validObjects.map(sample => finite(sample?.metadata?.sampleIndex));
   const timestampDeltas = [];
+  const temporalGapAdjacent = new Set();
   let timestampMonotonicityViolations = 0, sampleIndexMonotonicityViolations = 0, sampleIndexGaps = 0;
   for (let i = 1; i < validObjects.length; i++) {
     if (timestamps[i] !== null && timestamps[i - 1] !== null) {
       const delta = timestamps[i] - timestamps[i - 1];
       timestampDeltas.push(delta);
       if (delta <= 0) timestampMonotonicityViolations++;
+      if (delta > 150) { temporalGapAdjacent.add(i - 1); temporalGapAdjacent.add(i); }
     }
     if (indices[i] !== null && indices[i - 1] !== null) {
       if (indices[i] <= indices[i - 1]) sampleIndexMonotonicityViolations++;
@@ -183,6 +254,7 @@ export function analyzeSamples(samples, { batchSequences = [], relationalLaps = 
     identities.add(identity);
   }
   const sortedBatchSequences = batchSequences.map(finite).filter(value => value !== null).sort((a, b) => a - b);
+  const batchSequenceDuplicates = sortedBatchSequences.length - new Set(sortedBatchSequences).size;
   let batchGaps = 0;
   for (let i = 1; i < sortedBatchSequences.length; i++) {
     if (sortedBatchSequences[i] > sortedBatchSequences[i - 1] + 1)
@@ -213,24 +285,42 @@ export function analyzeSamples(samples, { batchSequences = [], relationalLaps = 
     return (steering !== null && Math.abs(steering) >= 0.95) || (throttle !== null && throttle >= 0.95)
       || (brake !== null && brake >= 0.95);
   }).length;
-  const potentiallyCleanSamples = validObjects.filter(sample => {
-    const events = sample?.eventState || {};
-    return !events.offTrack && !events.spin && !events.collision && numericInvalidCount(sample) === 0;
-  }).length;
+  const eventFlaggedIndexes = new Set();
+  const structurallyInvalidIndexes = new Set();
+  validObjects.forEach((sample, index) => {
+    if (sample?.eventState?.offTrack || sample?.eventState?.spin || sample?.eventState?.collision)
+      eventFlaggedIndexes.add(index);
+    if (sampleIsStructurallyInvalid(sample)) structurallyInvalidIndexes.add(index);
+  });
+  const unflaggedSamples = validObjects.filter((sample, index) =>
+    !eventFlaggedIndexes.has(index) && !structurallyInvalidIndexes.has(index) && !temporalGapAdjacent.has(index)).length;
   const deltas = timestampDeltas.filter(value => Number.isFinite(value));
-  const action = Object.fromEntries(['steering', 'throttle', 'brake'].map(key => [key,
-    distribution(validObjects.map(sample => sample?.driverAction?.[key]))]));
+  const action = {
+    steering: distribution(validObjects.map(sample => sample?.driverAction?.steering), [1, 5, 25, 50, 75, 95, 99]),
+    throttle: distribution(validObjects.map(sample => sample?.driverAction?.throttle)),
+    brake: distribution(validObjects.map(sample => sample?.driverAction?.brake))
+  };
   const steeringValues = validObjects.map(sample => finite(sample?.driverAction?.steering)).filter(v => v !== null);
   const throttleValues = validObjects.map(sample => finite(sample?.driverAction?.throttle)).filter(v => v !== null);
   const brakeValues = validObjects.map(sample => finite(sample?.driverAction?.brake)).filter(v => v !== null);
   if (action.steering) {
     action.steering.saturationNegativePercent = round(100 * steeringValues.filter(v => v <= -0.95).length / steeringValues.length);
     action.steering.saturationPositivePercent = round(100 * steeringValues.filter(v => v >= 0.95).length / steeringValues.length);
+    action.steering.absoluteAtLeast095Percent = percentage(steeringValues.filter(v => Math.abs(v) >= 0.95).length, steeringValues.length);
+    action.steering.approximatelyZeroEpsilon = 0.000001;
+    action.steering.approximatelyZeroPercent = percentage(steeringValues.filter(v => Math.abs(v) <= 0.000001).length, steeringValues.length);
   }
   if (action.throttle) {
     action.throttle.zeroPercent = round(100 * throttleValues.filter(v => v === 0).length / throttleValues.length);
+    action.throttle.betweenZeroAnd095Percent = percentage(throttleValues.filter(v => v > 0 && v < 0.95).length, throttleValues.length);
     action.throttle.atLeast095Percent = round(100 * throttleValues.filter(v => v >= 0.95).length / throttleValues.length);
   }
+  action.simultaneousPedals = {
+    diagnosticThreshold: 0.1,
+    count: validObjects.filter(sample => finite(sample?.driverAction?.throttle) > 0.1
+      && finite(sample?.driverAction?.brake) > 0.1).length
+  };
+  action.simultaneousPedals.percent = percentage(action.simultaneousPedals.count, validObjects.length);
   if (action.brake) {
     action.brake.zeroPercent = round(100 * brakeValues.filter(v => v === 0).length / brakeValues.length);
     action.brake.positivePercent = round(100 * brakeValues.filter(v => v > 0).length / brakeValues.length);
@@ -242,6 +332,19 @@ export function analyzeSamples(samples, { batchSequences = [], relationalLaps = 
   const laps = analyzeLaps(validObjects, relationalLaps);
   const finiteTimestamps = timestamps.filter(value => value !== null);
   const eventCounts = Object.fromEntries(Object.entries(flags).map(([key, values]) => [key, countEpisodes(values)]));
+  const eventLocalization = {
+    OFF_TRACK: eventIntervals(validObjects, 'offTrack', sampleRateHz),
+    SPIN: eventIntervals(validObjects, 'spin', sampleRateHz),
+    COLLISION: eventIntervals(validObjects, 'collision', sampleRateHz)
+  };
+  const cleanCandidateEstimate = {
+    RAW_SAMPLES: validObjects.length,
+    EVENT_FLAGGED_SAMPLES: eventFlaggedIndexes.size,
+    STRUCTURALLY_INVALID_SAMPLES: structurallyInvalidIndexes.size,
+    TEMPORAL_GAP_ADJACENT_SAMPLES: temporalGapAdjacent.size,
+    UNFLAGGED_SAMPLES: unflaggedSamples,
+    note: 'Diagnostic only: excludes only directly flagged samples and the two samples adjacent to each >150ms gap; no event window or ML3.1 threshold policy.'
+  };
   return {
     samplesMeasured: validObjects.length,
     durationSeconds: finiteTimestamps.length > 1 ? round((Math.max(...finiteTimestamps) - Math.min(...finiteTimestamps)) / 1000) : null,
@@ -250,6 +353,7 @@ export function analyzeSamples(samples, { batchSequences = [], relationalLaps = 
       sampleIndexMonotonicityViolations,
       duplicateSamples,
       batchGaps,
+      batchSequenceDuplicates,
       sampleIndexGaps,
       timestampGaps: {
         above150ms: deltas.filter(value => value > 150).length,
@@ -274,6 +378,9 @@ export function analyzeSamples(samples, { batchSequences = [], relationalLaps = 
     },
     actions: action,
     state,
+    surfaces: categoricalDistribution(validObjects.map(sample => sample?.trackState?.surface), ['TARMAC', 'KERB', 'RUNOFF', 'GRAVEL']),
+    eventLocalization,
+    cleanCandidateEstimate,
     problemRegions: {
       OFF_TRACK: eventCounts.offTrack.sampleCount,
       SPIN: eventCounts.spin.sampleCount,
@@ -282,7 +389,7 @@ export function analyzeSamples(samples, { batchSequences = [], relationalLaps = 
       INVALID_NUMERIC: invalidNumeric,
       ACTION_SATURATION: actionSaturation
     },
-    potentiallyCleanSamples
+    potentiallyCleanSamples: unflaggedSamples
   };
 }
 
@@ -332,6 +439,7 @@ export function classifyQuality(session, lineageEligibility) {
   if (lineageEligibility === LINEAGE_ELIGIBILITY.INFRASTRUCTURE_ONLY
     || lineageEligibility === LINEAGE_ELIGIBILITY.VALIDATION_ONLY) return QUALITY_ELIGIBILITY.NOT_EVALUATED;
   if (session.sessionId === 'ad759118-4386-481f-9d34-f3d496eb1854') return QUALITY_ELIGIBILITY.REVIEW;
+  if (session.collectionKind !== 'HUMAN' || session.status !== 'COMPLETED') return QUALITY_ELIGIBILITY.REVIEW;
   if (!session.qualitySignals || session.qualitySignals.samplesMeasured === 0) return QUALITY_ELIGIBILITY.REVIEW;
   const integrity = session.qualitySignals.structuralIntegrity;
   if (integrity.invalidNumeric || integrity.trackProgressOutOfRange || integrity.driverActionOutOfRange)
@@ -353,8 +461,8 @@ export function completeSession(input) {
     trackGeometryVersion: input.trackGeometryVersion ?? null,
     featureManifestVersion: input.featureManifestVersion ?? null,
     simulationFingerprint: input.simulationFingerprint ?? null,
-    fingerprintStatus: input.simulationFingerprint == null ? 'NOT_AVAILABLE'
-      : input.simulationFingerprint === SIMULATION_FINGERPRINT_SHA256 ? 'MATCH' : 'MISMATCH_BASELINE_DIFFERENT',
+    fingerprintStatus: input.simulationFingerprint == null ? 'MISSING'
+      : input.simulationFingerprint === SIMULATION_FINGERPRINT_SHA256 ? 'MATCH' : 'MISMATCH',
     trackId: finite(input.trackId) ?? input.trackId ?? null,
     sampleRateHz: finite(input.sampleRateHz),
     scope: input.scope ?? null,
@@ -386,19 +494,37 @@ function mergeValue(current, incoming) {
 }
 
 export function mergeSessions(items) {
+  const localOwners = new Map();
+  for (const item of items) {
+    if (!SESSION_UUID.test(item.sessionId ?? '') || !item.localCollectionSessionId) continue;
+    if (!localOwners.has(item.localCollectionSessionId)) localOwners.set(item.localCollectionSessionId, new Set());
+    localOwners.get(item.localCollectionSessionId).add(item.sessionId);
+  }
+  const localAliases = new Map([...localOwners.entries()]
+    .filter(([, owners]) => owners.size === 1)
+    .map(([localId, owners]) => [localId, [...owners][0]]));
+  const cloudAuthorityFields = new Set([
+    'sessionId', 'schemaVersion', 'gameBuildVersion', 'physicsVersion', 'trackGeometryVersion',
+    'featureManifestVersion', 'simulationFingerprint', 'trackId', 'sampleRateHz', 'scope', 'status',
+    'driverTypes', 'batchCount', 'sampleCount', 'lapCount', 'durationSeconds', 'createdAt', 'finishedAt',
+    'rawPayloadAvailable', 'qualitySignals'
+  ]);
   const merged = new Map();
   for (const item of items) {
-    const key = item.sessionId || item.localCollectionSessionId;
+    const key = (SESSION_UUID.test(item.sessionId ?? '') ? item.sessionId : localAliases.get(item.sessionId))
+      || localAliases.get(item.localCollectionSessionId) || item.sessionId || item.localCollectionSessionId;
     if (!key) continue;
     if (!merged.has(key)) { merged.set(key, { ...item }); continue; }
     const current = merged.get(key);
+    const incomingIsCloud = String(item.source).split('+').includes('CLOUD_POSTGRES');
     for (const [field, value] of Object.entries(item)) {
       if (['evidence', 'driverTypes'].includes(field)) current[field] = [...new Set([...(current[field] || []), ...(value || [])])].sort();
       else if (field === 'qualitySignals') {
-        if ((value?.samplesMeasured ?? 0) > (current[field]?.samplesMeasured ?? 0)) current[field] = value;
+        if (incomingIsCloud || (value?.samplesMeasured ?? 0) > (current[field]?.samplesMeasured ?? 0)) current[field] = value;
       }
       else if (field === 'source') current[field] = [...new Set(String(current[field]).split('+').concat(String(value).split('+')))].sort().join('+');
       else if (field === 'rawPayloadAvailable' || field === 'payloadCorrupt') current[field] = Boolean(current[field] || value);
+      else if (incomingIsCloud && cloudAuthorityFields.has(field) && value !== null && value !== undefined) current[field] = value;
       else current[field] = mergeValue(current[field], value);
     }
   }
@@ -440,9 +566,22 @@ export function buildInventory({ sessions, sourceStatus }) {
       hours: round(completed.reduce((sum, session) => sum + (session.durationSeconds ?? 0), 0) / 3600),
       byGameBuildVersion: aggregateBy(completed, 'gameBuildVersion'),
       byTrackId: aggregateBy(completed, 'trackId'),
+      bySchemaVersion: aggregateBy(completed, 'schemaVersion'),
+      byPhysicsVersion: aggregateBy(completed, 'physicsVersion'),
+      byTrackGeometryVersion: aggregateBy(completed, 'trackGeometryVersion'),
+      byFeatureManifestVersion: aggregateBy(completed, 'featureManifestVersion'),
+      byFingerprintStatus: aggregateBy(completed, 'fingerprintStatus'),
+      byScope: aggregateBy(completed, 'scope'),
+      byDriverTypes: aggregateBy(completed, 'driverTypes'),
       byCollectionKind: aggregateBy(completed, 'collectionKind'),
       byLineageEligibility: aggregateBy(completed, 'lineageEligibility'),
-      byQualityEligibility: aggregateBy(completed, 'qualityEligibility')
+      byQualityEligibility: aggregateBy(completed, 'qualityEligibility'),
+      humanReferenceStatus: {
+        '0.2.0-ml2': completed.some(session => session.collectionKind === 'HUMAN'
+          && session.gameBuildVersion === '0.2.0-ml2') ? 'HUMAN_REFERENCE_PRESENT_REVIEW_REQUIRED' : 'HUMAN_REFERENCE_0_2_INSUFFICIENT',
+        '0.3.0-ml2': completed.some(session => session.collectionKind === 'HUMAN'
+          && session.gameBuildVersion === '0.3.0-ml2') ? 'HUMAN_REFERENCE_PRESENT_REVIEW_REQUIRED' : 'HUMAN_REFERENCE_0_3_INSUFFICIENT'
+      }
     }
   };
   assertNoCredentials(canonicalInventory);

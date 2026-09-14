@@ -9,6 +9,7 @@ import {
   INVENTORY_SCHEMA_VERSION,
   KNOWN_SESSIONS,
   LINEAGE_ELIGIBILITY,
+  mergeSessions,
   QUALITY_ELIGIBILITY
 } from './ml3/inventoryCore.js';
 import { CLOUD_QUERIES, fetchPublicSessionMetadata, inventoryCloud } from './ml3/inventorySources.js';
@@ -87,7 +88,7 @@ async function main() {
       && match.lineageReasons.includes('SIMULATION_FINGERPRINT_MATCH'), 'baseline fingerprint match is detected');
 
     const mismatch = compatible({ sessionId: 'different-baseline', simulationFingerprint: 'a'.repeat(64) });
-    check(mismatch.fingerprintStatus === 'MISMATCH_BASELINE_DIFFERENT'
+    check(mismatch.fingerprintStatus === 'MISMATCH'
       && mismatch.lineageEligibility === LINEAGE_ELIGIBILITY.VALIDATION_ONLY
       && mismatch.lineageReasons.some(reason => reason.startsWith('SIMULATION_FINGERPRINT_MISMATCH_BASELINE_DIFFERENT')),
     'fingerprint mismatch is preserved as a different baseline requiring explicit analysis');
@@ -117,20 +118,59 @@ async function main() {
       && timestampGap.temporalIntegrity.deltaTimestampMs.p99 !== null,
     'deltaTimestamp distribution includes required median/p95/p99/max data');
 
-    const actionSignals = analyzeSamples([sample(0), sample(1), sample(2)]);
+    const actionSignals = analyzeSamples([sample(0), sample(1, 1100, { driverAction: { brake: 1 } }), sample(2)]);
     check(actionSignals.actions.steering.std !== null
+      && actionSignals.actions.steering.p25 !== null
+      && actionSignals.actions.steering.p75 !== null
       && actionSignals.actions.steering.saturationNegativePercent > 0
+      && actionSignals.actions.steering.absoluteAtLeast095Percent > 0
+      && actionSignals.actions.steering.approximatelyZeroPercent >= 0
       && actionSignals.actions.throttle.zeroPercent > 0
+      && actionSignals.actions.throttle.betweenZeroAnd095Percent >= 0
+      && actionSignals.actions.simultaneousPedals.count === 1
       && actionSignals.actions.brake.positivePercent > 0,
-    'action distributions and saturation/zero rates are measured');
+    'action distributions, pedal overlap and saturation/zero rates are measured');
+
+    check(['forwardVelocity', 'lateralVelocity', 'steeringAngle', 'futureCurvature5m',
+      'futureCurvature10m', 'futureCurvature20m', 'trackProgress']
+      .every(key => actionSignals.state[key]?.count === 3)
+      && actionSignals.surfaces.TARMAC.count === 3
+      && actionSignals.surfaces.KERB.count === 0,
+    'required state and surface distributions are measured explicitly');
 
     const lapSignals = analyzeSamples([
       sample(0, 1000), sample(1, 1100, { eventState: { offTrack: true } }),
       sample(2, 1200, { metadata: { lapNumber: 2 }, eventState: { spin: true } })
     ]);
     check(lapSignals.laps.count === 2 && lapSignals.laps.invalid === 2
-      && lapSignals.problemRegions.OFF_TRACK === 1 && lapSignals.problemRegions.SPIN === 1,
-    'lap boundaries and candidate problem regions are diagnosed');
+      && lapSignals.problemRegions.OFF_TRACK === 1 && lapSignals.problemRegions.SPIN === 1
+      && lapSignals.eventLocalization.OFF_TRACK[0].startSampleIndex === 1
+      && lapSignals.eventLocalization.SPIN[0].lapNumber === 2
+      && lapSignals.cleanCandidateEstimate.EVENT_FLAGGED_SAMPLES === 2
+      && lapSignals.cleanCandidateEstimate.UNFLAGGED_SAMPLES === 1,
+    'lap boundaries, localized events and conservative unflagged estimate are diagnosed');
+
+    const gapClean = analyzeSamples([sample(0, 1000), sample(1, 1100), sample(2, 1400), sample(3, 1500)]);
+    check(gapClean.cleanCandidateEstimate.TEMPORAL_GAP_ADJACENT_SAMPLES === 2
+      && gapClean.cleanCandidateEstimate.UNFLAGGED_SAMPLES === 2,
+    'samples adjacent to a temporal gap are excluded from the diagnostic unflagged estimate');
+
+    const unknownProvenance = compatible({ sessionId: 'unknown-provenance', collectionKind: 'UNKNOWN' });
+    check(unknownProvenance.lineageEligibility === LINEAGE_ELIGIBILITY.COMPATIBLE
+      && unknownProvenance.qualityEligibility === QUALITY_ELIGIBILITY.REVIEW,
+    'unknown collection provenance never becomes an automatic quality candidate');
+
+    const reconciled = mergeSessions([
+      compatible({ source: 'VALIDATION_ARTIFACTS', sessionId: 'local-collector', sampleCount: 86 }),
+      compatible({ source: 'CLOUD_POSTGRES', sessionId: 'a7ccea2d-c83b-4abb-b0db-188d20d4e439',
+        localCollectionSessionId: 'local-collector', sampleCount: 87, batchCount: 2,
+        qualitySignals: analyzeSamples([sample(0), sample(1), sample(2)]) })
+    ]);
+    check(reconciled.length === 1
+      && reconciled[0].sessionId === 'a7ccea2d-c83b-4abb-b0db-188d20d4e439'
+      && reconciled[0].sampleCount === 87
+      && reconciled[0].source === 'CLOUD_POSTGRES+VALIDATION_ARTIFACTS',
+    'cloud UUID/counts override a uniquely linked local collector without double counting');
 
     const first = buildInventory({ sessions: [compatible({ sessionId: 'z' }), compatible({ sessionId: 'a', gameBuildVersion: '0.2.0-ml2' })],
       sourceStatus: [{ source: 'TEST', status: 'AVAILABLE' }] });
@@ -141,6 +181,10 @@ async function main() {
 
     check(Object.keys(first.canonicalInventory.summary.byGameBuildVersion).join(',') === '0.2.0-ml2,0.3.0-ml2',
       'game-build distributions remain explicitly stratified');
+
+    const noHuman03 = buildInventory({ sessions: [human, infrastructure], sourceStatus: [] });
+    check(noHuman03.canonicalInventory.summary.humanReferenceStatus['0.3.0-ml2'] === 'HUMAN_REFERENCE_0_3_INSUFFICIENT',
+      'missing 0.3 human coverage is reported explicitly');
 
     check(assertNoCredentials(first) && !/generatedAt/.test(canonicalJson(first)),
       'canonical output contains neither credential fields nor volatile generatedAt');
@@ -158,6 +202,78 @@ async function main() {
     check(!/\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\b/.test(queries)
       && Object.values(CLOUD_QUERIES).every(query => query.trim().toUpperCase().startsWith('SELECT')),
     'cloud inventory data queries are SELECT-only');
+
+    const cloudSessionId = '0d127bd9-1781-4315-8eb0-4eb81731b224';
+    const cloudSamples = [sample(0), sample(1)];
+    const { gzipSync } = await import('node:zlib');
+    class FakePool {
+      async connect() {
+        return {
+          query: async query => {
+            if (query === CLOUD_QUERIES.sessions) return { rows: [{
+              id: cloudSessionId, schema_version: 2, track_id: 21, sample_rate_hz: '10',
+              game_build_version: '0.3.0-ml2', track_geometry_version: '1.5.0-centripetal',
+              physics_version: '1.5.0-gt3', feature_manifest_version: '2.1.0',
+              scope: 'PLAYER_ONLY', status: 'COMPLETED', received_samples: 2,
+              received_batches: 1, completed_laps: 0, client_info: {}
+            }] };
+            if (query === CLOUD_QUERIES.batches) return { rows: [{
+              session_id: cloudSessionId, batch_sequence: 0, sample_count: 2,
+              first_sample_index: 0, last_sample_index: 1,
+              first_timestamp: '1000.000', last_timestamp: '1100.000',
+              payload_compressed: gzipSync(JSON.stringify(cloudSamples))
+            }] };
+            if (query === CLOUD_QUERIES.laps) return { rows: [] };
+            return { rows: [] };
+          },
+          release() {}
+        };
+      }
+      async end() {}
+    }
+    const cloudMeasured = await inventoryCloud({ databaseUrl: 'redacted', Pool: FakePool });
+    check(cloudMeasured.status.status === 'AVAILABLE_FULL'
+      && cloudMeasured.status.payloadIntegrity.gzipValid === 1
+      && cloudMeasured.status.payloadIntegrity.countMismatch === 0
+      && cloudMeasured.status.payloadIntegrity.firstLastMetadataMatch === 1
+      && cloudMeasured.sessions[0].localCollectionSessionId === 'fixture'
+      && cloudMeasured.sessions[0].qualitySignals.batchIntegrity.sequenceGaps === 0,
+    'cloud inventory validates GZIP, JSON, counts, boundaries and local lineage identity');
+
+    class CountMismatchPool extends FakePool {
+      async connect() {
+        const client = await super.connect();
+        const query = client.query;
+        client.query = async sql => {
+          const result = await query(sql);
+          if (sql === CLOUD_QUERIES.batches) result.rows[0].sample_count = 3;
+          return result;
+        };
+        return client;
+      }
+    }
+    const cloudCountMismatch = await inventoryCloud({ databaseUrl: 'redacted', Pool: CountMismatchPool });
+    check(cloudCountMismatch.status.payloadIntegrity.countMismatch === 1
+      && cloudCountMismatch.sessions[0].payloadCorrupt === true
+      && cloudCountMismatch.sessions[0].lineageEligibility === LINEAGE_ELIGIBILITY.REJECT,
+    'cloud count mismatches are explicit and reject the corrupt payload');
+
+    class InvalidGzipPool extends FakePool {
+      async connect() {
+        const client = await super.connect();
+        const query = client.query;
+        client.query = async sql => {
+          const result = await query(sql);
+          if (sql === CLOUD_QUERIES.batches) result.rows[0].payload_compressed = Buffer.from('not-gzip');
+          return result;
+        };
+        return client;
+      }
+    }
+    const cloudInvalidGzip = await inventoryCloud({ databaseUrl: 'redacted', Pool: InvalidGzipPool });
+    check(cloudInvalidGzip.status.payloadIntegrity.gzipInvalid === 1
+      && cloudInvalidGzip.sessions[0].payloadCorrupt === true,
+    'invalid GZIP batches are counted without exposing database details');
 
     const publicResult = await fetchPublicSessionMetadata(Object.keys(KNOWN_SESSIONS).slice(0, 1), {
       fetchImpl: async () => ({ ok: true, json: async () => ({
