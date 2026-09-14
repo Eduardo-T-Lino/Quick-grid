@@ -17,6 +17,8 @@
         <a class="wordmark" href="#menu" aria-label="Quick-grid, início"><span class="brand-stripes" aria-hidden="true"><i></i><i></i><i></i></span>QUICK<span>GRID</span><sup>GT3</sup></a>
         <div class="header-section"><span class="live-dot"></span> PADDOCK <span class="header-divider">/</span> <b>CORRIDA RÁPIDA</b></div>
         <div class="header-actions">
+          <button type="button" id="online-open" class="quiet-button">JOGAR ONLINE ↗</button>
+          <button type="button" id="account-open" class="quiet-button">ENTRAR / CRIAR CONTA</button>
           <button type="button" id="motion-toggle" class="quiet-button" aria-pressed="false" aria-label="Pausar animações do menu">Ⅱ <span>Animações</span></button>
           <button type="button" id="controls-open" class="quiet-button">Controles <span aria-hidden="true">↗</span></button>
         </div>
@@ -76,10 +78,15 @@
           </div>
           <div class="setup-fields config-driving">
             <div class="form-group"><label for="trackCondition">CONDIÇÃO</label><select id="trackCondition"><option value="dry" selected>Seca / Slicks</option><option value="wet">Molhada</option></select></div>
-            <div class="form-group"><label for="transMode">TRANSMISSÃO</label><select id="transMode"><option value="auto">Automática</option><option value="manual" selected>Manual</option></select></div>
+            <div class="form-group"><label for="transMode">TRANSMISSÃO</label><select id="transMode"><option value="auto" selected>Automática</option><option value="manual">Manual</option></select></div>
           </div>
           <div id="botOptionsGroup"><div class="config-section config-opponents">
-            <div class="form-group"><label for="botCount">ADVERSÁRIOS <span class="config-label-note">Você + o grid</span></label><select id="botCount"><option value="1">1 piloto</option><option value="3">3 pilotos</option><option value="19" selected>19 pilotos</option></select></div>
+            <div class="form-group laps-field" id="bots-field">
+              <div class="laps-heading"><div><label for="botCount">ADVERSÁRIOS</label><span id="bot-summary">20 carros no grid</span></div><div class="lap-stepper"><button id="bots-less" type="button" aria-label="Diminuir bots">−</button><div class="lap-value"><input id="botCount" type="number" min="1" max="19" step="1" value="19" inputmode="numeric" aria-describedby="bot-count-help"><span>BOTS</span></div><button id="bots-more" type="button" aria-label="Aumentar bots">+</button></div></div>
+              <label for="botRange" class="sr-only">Ajustar número de bots</label><input id="botRange" type="range" min="1" max="19" step="1" value="19" aria-describedby="bot-count-help">
+              <div class="lap-presets" role="group" aria-label="Escolhas rápidas de bots"><button type="button" data-bots="1">1</button><button type="button" data-bots="3">3</button><button type="button" data-bots="7">7</button><button type="button" data-bots="12">12</button><button type="button" data-bots="19">19</button></div>
+              <span id="bot-count-help" class="sr-only">Escolha de 1 a 19 bots, digitando ou ajustando a barra. No contrarrelógio você corre sozinho.</span>
+            </div>
             <div class="form-group"><label for="botDifficulty">DIFICULDADE</label><select id="botDifficulty"><option value="easy">Principiante</option><option value="medium">Veterano</option><option value="pro" selected>Profissional</option></select></div>
           </div></div>
           <p id="session-brief" class="session-brief" aria-live="polite">20 carros no grid · 3 voltas · Manual</p>
@@ -101,7 +108,7 @@
     </div>
   </main>
 
-  <dialog id="controls-dialog" aria-labelledby="controls-title"><div class="dialog-heading"><span class="eyebrow">GUIA DO PILOTO</span><form method="dialog"><button class="quiet-button" aria-label="Fechar controles">✕</button></form></div><h2 id="controls-title">ASSUMA O VOLANTE.</h2><p>Use o teclado para pilotar. Os comandos são os mesmos em todos os circuitos.</p><div class="controls-grid"><div><kbd>W</kbd><span>Acelerar</span></div><div><kbd>S</kbd><span>Frear / marcha à ré</span></div><div><kbd>A</kbd><kbd>D</kbd><span>Esterçar</span></div><div><kbd>↑</kbd><kbd>↓</kbd><span>Subir / reduzir marcha</span></div></div><p class="dialog-note">Na transmissão automática, as marchas são trocadas pelo carro. Para pilotar, conecte um teclado.</p><form method="dialog"><button class="btn-main">ENTENDIDO. VAMOS CORRER.</button></form></dialog>
+  <dialog id="controls-dialog" aria-labelledby="controls-title"><div class="dialog-heading"><span class="eyebrow">GUIA DO PILOTO</span><form method="dialog"><button class="quiet-button" aria-label="Fechar controles">✕</button></form></div><h2 id="controls-title">ASSUMA O VOLANTE.</h2><p>Use o teclado para pilotar. Os comandos são os mesmos em todos os circuitos.</p><div class="controls-grid"><div><kbd>W</kbd><span>Acelerar</span></div><div><kbd>S</kbd><span>Frear / marcha à ré</span></div><div><kbd>A</kbd><kbd>D</kbd><span>Esterçar</span></div><div><kbd>↑</kbd><kbd>↓</kbd><span>Subir / reduzir marcha</span></div><div><kbd>ESPAÇO</kbd><span>Boost — segure junto com W no asfalto</span></div></div><p class="dialog-note">Boost: até 3 segundos de potência extra, com limite próprio de 350 km/h (320 sem boost). Solte Espaço para recarregar: 2 segundos de espera e até 12 segundos de recarga. Disponível novamente a partir de 20% de carga. Na transmissão automática, as marchas são trocadas pelo carro. Para pilotar, conecte um teclado.</p><form method="dialog"><button class="btn-main">ENTENDIDO. VAMOS CORRER.</button></form></dialog>
 
   <dialog id="track-dialog" aria-labelledby="track-dialog-title" aria-describedby="track-dialog-description">
     <header class="track-dialog-header">
@@ -155,17 +162,13 @@
   <div id="hud-leaderboard"></div>
 
   <div id="hud-bottom-right">
-    <div style="font-size:0.7em; color:#aaa; font-weight:bold" id="player-name">PILOTO</div>
-    <div class="speed-display"><span id="speed-val">0</span> <span style="font-size:0.45em; color:#888">KM/H</span>
+    <div class="dash-header"><span id="player-name">PILOTO</span><span id="wake-status">AR LIMPO</span></div>
+    <div class="dash-instruments">
+      <div class="gear-display"><span class="instrument-label">MARCHA</span><span class="gear-val" id="gear-val">1</span><span class="mode-tag" id="mode-tag">AUTO</span></div>
+      <div class="dash-speed"><div class="speed-display"><span id="speed-val">0</span><span>KM/H</span></div><div class="shift-text" id="shift-text">1000 RPM</div><div class="rpm-container"><div class="rpm-bar" id="rpm-bar"></div></div>
+        <div id="boost-hud" class="boost-hud"><div id="boost-meter" class="boost-meter" role="progressbar" aria-label="Carga do boost" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="boost-fill"></div></div><div class="boost-label"><span>BOOST <kbd>ESPAÇO</kbd></span><span id="boost-status">PRONTO · 100%</span></div></div>
+      </div>
     </div>
-    <div class="gear-display">
-      <span class="gear-val" id="gear-val">1ª MARCHA</span>
-      <span class="mode-tag" id="mode-tag">MANUAL</span>
-    </div>
-    <div class="rpm-container">
-      <div class="rpm-bar" id="rpm-bar"></div>
-    </div>
-    <div class="shift-text" id="shift-text">1000 RPM</div>
     <div class="telemetry-row"><span id="tyre-status">PNEUS 75°C</span><span id="assist-status">TC / ABS</span></div>
   </div>
 
@@ -179,7 +182,39 @@
   </section>
   <canvas id="gameCanvas" tabindex="-1" aria-label="Pista de corrida. Use W e S para pedais, A e D para direção."></canvas>
 
+  <dialog id="online-dialog" class="online-dialog" aria-labelledby="online-title">
+    <header class="online-header"><div><small class="online-eyebrow">QUICK-GRID <span>/</span> MULTIPLAYER</small><h2 id="online-title">SALA DE CORRIDA<span class="online-title-dot">.</span></h2><p>Seu grupo. Seu campeonato.</p></div><span class="online-private">PRIVADO <b>08</b> PILOTOS</span><button id="online-close" type="button" aria-label="Fechar online">×</button></header>
+    <p id="online-status" role="status" aria-live="polite">Entre como convidado. Não precisa de conta.</p>
+    <div id="online-entry">
+      <div class="online-identity"><label for="online-name">NOME NO GRID<input id="online-name" minlength="2" maxlength="24" value="Piloto" autocomplete="nickname"></label><div><span class="online-label" id="online-auto-label">TRANSMISSÃO</span><select id="online-auto" aria-label="Transmissão" hidden><option value="auto">Automática</option><option value="manual">Manual</option></select><div class="online-segments" role="radiogroup" aria-labelledby="online-auto-label" data-online-select="online-auto"><button type="button" role="radio" data-value="auto" aria-checked="true">Automática</button><button type="button" role="radio" data-value="manual" aria-checked="false">Manual</button></div></div></div>
+      <div class="online-columns"><section class="online-create-panel"><span class="online-section-index">01 / ORGANIZAR</span><h3>Monte seu grid.</h3><select id="online-format" aria-label="Formato" hidden><option value="single">Corrida única</option><option value="tournament">Torneio com votação</option></select><div class="online-formats" role="radiogroup" aria-label="Formato da sala" data-online-select="online-format"><button type="button" role="radio" data-value="single" aria-checked="true"><span class="online-format-icon" aria-hidden="true">⚑</span><strong>Corrida única</strong><small>Uma pista. Tudo ou nada.</small><i aria-hidden="true"></i></button><button type="button" role="radio" data-value="tournament" aria-checked="false"><span class="online-format-icon" aria-hidden="true">▥</span><strong>Torneio</strong><small>Votação + pontos por etapa.</small><i aria-hidden="true"></i></button></div><div id="online-rounds-label" class="online-stage-row" hidden><label for="online-rounds">ETAPAS<small>De 2 a 12 corridas</small></label><div class="online-stepper"><button id="online-rounds-minus" type="button" aria-label="Diminuir etapas">−</button><input id="online-rounds" aria-label="Quantidade de etapas" type="number" min="2" max="12" value="3"><button id="online-rounds-plus" type="button" aria-label="Aumentar etapas">+</button></div></div><p id="online-config-summary" class="online-config-summary"></p><p class="online-rules">Torneio: 3 circuitos sorteados por etapa. Vocês votam em até 20s. Sem repetir pistas disputadas.</p><button id="online-create" type="button" class="online-primary">CRIAR E CONVIDAR <span aria-hidden="true">→</span></button></section>
+      <section class="online-join-panel"><span class="online-section-index">02 / PARTICIPAR</span><h3>Já tem convite?</h3><p>Seu lugar está reservado no próximo grid.</p><label for="online-code">CÓDIGO DA SALA</label><input id="online-code" maxlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="A1B2C3" autocomplete="off" spellcheck="false"><button id="online-join" type="button">ENTRAR NA SALA <span aria-hidden="true">↗</span></button><small>Peça o código ao anfitrião.<br>Todos devem acessar o mesmo servidor.</small><div class="online-join-decoration" aria-hidden="true">GRID / 08</div></section></div>
+    </div>
+    <section id="online-room" hidden>
+      <div class="online-room-heading"><div><small>CONVIDE SEUS AMIGOS</small><strong id="online-room-code"></strong></div><button id="online-copy" type="button">COPIAR CÓDIGO</button><span id="online-ping"></span></div>
+      <div class="online-room-layout"><aside class="online-grid-panel"><div class="online-grid-heading"><h3>GRID DE PILOTOS</h3><span id="online-player-count">0 / 8</span></div><ol id="online-players"></ol></aside><div class="online-event-panel"><div class="online-event-heading"><h3 id="online-phase"></h3><span id="online-vote-clock" hidden></span></div><p id="online-detail"></p><div id="online-vote-progress" hidden><i></i></div><div id="online-track-preview" class="online-track-preview"></div><div id="online-votes" class="online-votes" aria-label="Votação de pista"></div><div id="online-results"></div></div></div>
+      <footer><button id="online-ready" type="button" aria-pressed="false">ESTOU PRONTO</button><button id="online-start" type="button" class="online-primary">INICIAR</button><button id="online-return" type="button" hidden>VOLTAR À PISTA</button><button id="online-leave" type="button">SAIR DA SALA</button></footer>
+    </section>
+  </dialog>
+  <div id="online-race-note" hidden>ONLINE · ESC abre o menu sem pausar a corrida</div>
   <script type="module" src="/src/main.js"></script>
+  <dialog id="auth-dialog" class="auth-dialog" aria-labelledby="auth-title">
+    <header class="auth-header"><div><small>QUICK-GRID / IDENTIDADE DE PILOTO</small><h2 id="auth-title">SEU LUGAR NO GRID.</h2></div><button type="button" class="auth-close" data-auth-close aria-label="Fechar conta">×</button></header>
+    <div id="auth-mode-switch" class="auth-mode-switch" aria-label="Acesso à conta">
+      <button type="button" id="auth-login-tab" aria-pressed="true">ENTRAR</button><button type="button" id="auth-register-tab" aria-pressed="false">CRIAR CONTA</button>
+    </div>
+    <form id="auth-form">
+      <label for="auth-username">NOME DE USUÁRIO<input id="auth-username" name="username" autocomplete="username" required minlength="3" maxlength="24" pattern="[a-zA-Z0-9_]{3,24}" autocapitalize="none" spellcheck="false"><small>De 3 a 24 letras, números ou _. Sem espaços.</small></label>
+      <label id="auth-pilot-field" for="auth-pilot" hidden>NOME DE PILOTO<input id="auth-pilot" name="pilotName" autocomplete="nickname" minlength="2" maxlength="32"><small>É o nome que aparece na pista.</small></label>
+      <label for="auth-password">SENHA<input id="auth-password" name="password" type="password" autocomplete="current-password" required maxlength="128"><small id="auth-password-hint" hidden>Mínimo de 6 caracteres, inclusive só números. Para mais proteção, prefira uma senha longa.</small></label>
+      <button type="submit" id="auth-submit" class="auth-primary">ENTRAR NO PADDOCK</button>
+    </form>
+    <section id="auth-account" class="auth-account" hidden aria-label="Conta conectada"><h3 id="auth-greeting"></h3><p id="auth-username-display"></p><button type="button" id="auth-logout" class="auth-secondary">SAIR DA CONTA</button></section>
+    <p id="auth-status" role="status" aria-live="polite"></p>
+    <p id="auth-storage-note" hidden>Ambiente local sem PostgreSQL: contas temporárias, disponíveis até o backend reiniciar.</p>
+    <button type="button" id="auth-guest" class="auth-secondary" data-auth-close>CORRER SEM CONTA</button>
+    <p class="auth-note">Conta opcional. Seus recordes continuam neste navegador. Este cadastro não solicita e-mail e ainda não oferece recuperação de senha.</p>
+  </dialog>
 </body>
 
 </html>

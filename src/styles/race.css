@@ -1,4 +1,11 @@
 /* No backdrop blur over a continuously repainted canvas: translucent solid panels suffice. */
+.boost-hud { margin-top: 10px; padding-top: 9px; border-top: 1px solid #344255; color: #9acbff; }
+.boost-label { display: flex; justify-content: space-between; gap: 8px; font: 700 9px/1.5 'Segoe UI', sans-serif; }
+.boost-label kbd { border: 1px solid #536987; padding: 1px 3px; margin-right: 3px; border-radius: 2px; font: inherit; }
+.boost-meter { margin-top: 6px; height: 5px; background: #263347; overflow: hidden; }
+#boost-fill { height: 100%; background: linear-gradient(90deg, #387dff, #82dcff); transform-origin: left; }
+.boost-hud.is-active { color: #ffb280; }
+.boost-hud.is-active #boost-fill { background: linear-gradient(90deg, #fa473e, #ffbf72); }
 #hud-top .top-badge, #hud-bottom-right, #hud-leaderboard, #shift-alert { backdrop-filter: none; -webkit-backdrop-filter: none; }
 #hud-leaderboard, #hud-bottom-right { contain: layout style; background: #101725f5; }
 #hud-leaderboard { font-variant-numeric: tabular-nums; }

@@ -2,5 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/v1/auth/:path*", "destination": "https://quick-grid-telemetry-api.onrender.com/api/v1/auth/:path*" }
+  ]
 }

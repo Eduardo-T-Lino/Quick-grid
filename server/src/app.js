@@ -8,6 +8,7 @@ import { healthRouter } from './routes/health.js';
 import { telemetrySessionsRouter } from './routes/telemetrySessions.js';
 import { telemetryBatchesRouter } from './routes/telemetryBatches.js';
 import { telemetryLapsRouter } from './routes/telemetryLaps.js';
+import { createAuthRouter } from './auth/router.js';
 
 export function createApp() {
   const app = express();
@@ -40,6 +41,9 @@ export function createApp() {
 
   // 2. Parser compatível com batch nominal ~41KB, com margem para schema.
   app.use(express.json({ limit: config.MAX_BODY_SIZE }));
+
+  // Optional player accounts are separate from anonymous telemetry.
+  app.use('/api/v1/auth', createAuthRouter());
 
   // 3. Rotas de Health & Monitoramento
   app.use(healthRouter);

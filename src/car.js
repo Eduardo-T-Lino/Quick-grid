@@ -6,13 +6,17 @@ import {
   FORCA_TRACAO, RESISTENCIA_AR, TAXA_SUAVIZACAO_ACEL,
   TAXA_SUAVIZACAO_FREIO, FORCA_FREIO_MAX,
   GEAR_SPEEDS, GEAR_POWER, GT3_WHEELBASE, GT3_BASE_GRIP, GT3_AERO_GRIP,
-  GT3_TC_SLIP_LIMIT, GT3_ABS_SLIP_LIMIT
+  GT3_TC_SLIP_LIMIT, GT3_ABS_SLIP_LIMIT, GT3_REAR_LATERAL_DEMAND,
+  GT3_TOP_SPEED, GT3_REAR_SLIDE_GRIP_LOSS, GT3_OVERSTEER_GAIN, GT3_YAW_RECOVERY_LOSS, GT3_MAX_YAW_RATE, GRAVEL_HANDLING, DRIFT_CONTROL
 } from './constants.js';
 import { Particle, SparkParticle } from './particles.js';
 import { state } from './game.js';
 import { BotBrain } from './ai.js';
 import { drawCarAppearance } from './carAppearance.js';
 import { playerSteering } from './raceSettings.js';
+import { WAKE_TUNING } from './aerodynamics.js';
+import { getStartingGrid } from './startingGrid.js';
+import { BOOST_TUNING, updateBoost } from './boost.js';
 
 export class Car {
   constructor(color, name, isBot, index, isAuto = true) {
@@ -29,19 +33,11 @@ export class Car {
 
     const { trackPath, botDifficulty } = state;
 
-    let startPoint = trackPath[0] || { x: 300, y: 300, z: 0, normalX: 0, normalY: 1 };
-    let nextPoint = trackPath[3] || { x: 305, y: 300, z: 0 };
-    this.angle = Math.atan2(nextPoint.y - startPoint.y, nextPoint.x - startPoint.x);
-
-    // Posicionamento no grid de largada oficial da F1 (em metros reais)
-    let gridRow = Math.floor(index / 2);
-    let gridCol = (index % 2 === 0) ? -1 : 1;
-    let startOffset = gridCol * 4.5;
-    let backOffset = gridRow * 9.0 + 6.0;
-
-    this.x = startPoint.x + (startPoint.normalX * startOffset) - (Math.cos(this.angle) * backOffset);
-    this.y = startPoint.y + (startPoint.normalY * startOffset) - (Math.sin(this.angle) * backOffset);
-    this.z = startPoint.z || 0;
+    const slot = getStartingGrid(trackPath, state.selectedTrackData?.trackWidth || 24)[index];
+    this.angle = slot.angle;
+    this.x = slot.x;
+    this.y = slot.y;
+    this.z = slot.z;
 
     this.vx = 0; this.vy = 0;
     this.gear = 1;
@@ -52,6 +48,12 @@ export class Car {
     this.steerAmount = 0.0;
     this.yawRate = 0.0;
     this.rearSlip = 0.0;
+    this.wakeIntensity = 0;
+    this.boostCharge = 1;
+    this.boostCarry = false;
+    this.boostCooldown = 0;
+    this.boostActive = false;
+    this.boostNeedsRelease = false;
     this.tcActive = false;
     this.absActive = false;
     this.tyreTemp = 74;
@@ -60,7 +62,7 @@ export class Car {
 
     this.currentLap = 1;
     this.nextCheckpoint = 1;
-    this.pathIndex = 0;
+    this.pathIndex = slot.pathIndex;
     this.finished = false;
     this.rank = index + 1;
     this.progress = 0;
@@ -137,6 +139,7 @@ export class Car {
     if (!trackPath || trackPath.length === 0) return;
 
     if (this.finished) {
+      this.boostActive = false;
       this.vx *= 0.94; this.vy *= 0.94;
       this.x += this.vx; this.y += this.vy;
       return;
@@ -311,7 +314,7 @@ export class Car {
     let gravityEffect = -slope * 0.035;
 
     let aceleracao_alvo = 0;
-    if (throttleInput > 0 && speed < GEAR_SPEEDS[this.gear]) {
+    if (throttleInput > 0 && (speed < GEAR_SPEEDS[this.gear] || this.gear === 6)) {
       // Curva de torque: a saída de curva é forte, porém sem o salto brusco da versão anterior.
       const gearTopSpeed = GEAR_SPEEDS[this.gear];
       const rpmTorque = Math.max(0.42, 1 - (speed / Math.max(gearTopSpeed, 0.01)) * 0.42);
@@ -322,8 +325,30 @@ export class Car {
 
     this.aceleracao_atual += (aceleracao_alvo - this.aceleracao_atual) * TAXA_SUAVIZACAO_ACEL;
 
-    let arrasto = (speed * speed) * RESISTENCIA_AR;
-    let engineAccelFinal = this.aceleracao_atual - arrasto;
+    const wake = Math.max(0, Math.min(1, this.wakeIntensity || 0));
+    let arrasto = (speed * speed) * RESISTENCIA_AR * (1 - wake * WAKE_TUNING.dragLoss);
+    const boostSpeedLimit = MAX_INTERNAL_SPEED * BOOST_TUNING.maxSpeedKmh / MAX_SPEED_KMH;
+    updateBoost(this, !this.isBot && Boolean(keys.Space),
+      throttleInput > 0 && brakeInput === 0 && fwdVelPre >= 0 && this.currentSurface === 'TARMAC' && speed < boostSpeedLimit,
+      state.racePhase === 'racing' && !state.isPaused && !this.isBot);
+    if (this.boostActive) this.boostCarry = true;
+    else if (speed <= GT3_TOP_SPEED || fwdVelPre <= 0 || brakeInput > 0 || this.currentSurface !== 'TARMAC') this.boostCarry = false;
+    // Only preserve earned boost momentum. Braking and off-road losses are unchanged.
+    const boostCoast = this.boostCarry && !this.boostActive
+      ? Math.min(1, Math.max(0, (speed - GT3_TOP_SPEED) * MAX_SPEED_KMH / MAX_INTERNAL_SPEED / BOOST_TUNING.coastBlendKmh)) : 0;
+    arrasto *= 1 - boostCoast * (1 - BOOST_TUNING.coastAeroFactor);
+    const wakeTarget = fwdVelPre > 0 ? wake * WAKE_TUNING.extraSpeedKmh : 0;
+    const allowance = this.wakeSpeedAllowance || 0;
+    this.wakeSpeedAllowance = allowance + Math.max(-WAKE_TUNING.unlockKmhPerSecond / 60,
+      Math.min(WAKE_TUNING.unlockKmhPerSecond / 60, wakeTarget - allowance));
+    let engineAccelFinal = this.aceleracao_atual * (this.boostActive ? BOOST_TUNING.power : 1)
+      * (1 + wake * WAKE_TUNING.accelerationGain) - Math.sign(fwdVelPre) * arrasto;
+    const engineSpeedLimit = this.boostActive ? boostSpeedLimit
+      : GT3_TOP_SPEED + MAX_INTERNAL_SPEED * this.wakeSpeedAllowance / MAX_SPEED_KMH;
+    // Separate engine limits; releasing boost preserves momentum instead of clipping speed.
+    if (engineAccelFinal > 0) engineAccelFinal = Math.min(engineAccelFinal, Math.max(0, engineSpeedLimit - speed));
+    // Corta só a força positiva do motor; não trunca a velocidade de colisões/descidas.
+    if (fwdVelPre >= engineSpeedLimit) engineAccelFinal = Math.min(engineAccelFinal, -arrasto);
 
     // --- PNEUS GT3: círculo de aderência, carga aerodinâmica e transferência ---
     // A asa dá mais aderência apenas em velocidade; em baixa o carro pode rodar.
@@ -338,7 +363,8 @@ export class Car {
     let surfaceGrip = this.currentSurface === 'GRAVEL' ? 0.28 :
       (this.currentSurface === 'RUNOFF' ? 0.74 : (this.currentSurface === 'KERB' ? 0.84 : 1.0));
     surfaceGrip *= tyreCondition * weatherGrip;
-    let aeroGrip = GT3_AERO_GRIP * Math.min(1.35, (speed / MAX_INTERNAL_SPEED) ** 2);
+    let aeroGrip = GT3_AERO_GRIP * Math.min(1.35, (speed / MAX_INTERNAL_SPEED) ** 2)
+      * (1 - wake * WAKE_TUNING.downforceLoss);
     let totalGrip = (GT3_BASE_GRIP + aeroGrip) * surfaceGrip;
 
     // Frear desloca carga para frente; acelerar descarrega a frente e sobrecarrega a traseira.
@@ -348,6 +374,9 @@ export class Car {
     let rearGrip = totalGrip * rearLoad;
     // Relação de direção menos nervosa: ainda permite hairpins, mas é estável em apoio rápido.
     let steerAngle = steerInput * (0.32 - 0.20 * Math.min(1, speed / MAX_INTERNAL_SPEED));
+    const gravelManeuver = this.currentSurface === 'GRAVEL'
+      ? Math.max(0, 1 - speed / GRAVEL_HANDLING.maneuverSpeed) : 0;
+    steerAngle += steerInput * GRAVEL_HANDLING.extraSteer * gravelManeuver;
     let desiredYawRate = fwdVel * Math.tan(steerAngle) / GT3_WHEELBASE;
 
     // O eixo dianteiro é responsável pelo giro. Se ele satura, o carro abre a trajetória.
@@ -355,35 +384,71 @@ export class Car {
     let frontUse = Math.min(1, frontLatDemand / Math.max(frontGrip, 0.001));
     let yawAuthority = 1 - Math.max(0, frontUse - 0.72) * 1.9;
     yawAuthority = Math.max(0.10, yawAuthority);
-    this.yawRate += (desiredYawRate * yawAuthority - this.yawRate) * (0.075 + 0.12 * frontUse);
-
-    // Tração e frenagem compartilham a aderência disponível em cada eixo.
-    let rearLateralUse = Math.min(0.96, Math.abs(desiredYawRate * fwdVel) * 0.48 / Math.max(rearGrip, 0.001));
+    // RWD: toda a força motriz consome apenas o círculo de aderência traseiro.
+    // O giro já existente também exige aderência: contraesterçar não apaga a rodada.
+    const rearAxleLateralVelocity = latVel - this.yawRate * GT3_WHEELBASE * 0.5;
+    const rearDemand = Math.max(Math.abs(desiredYawRate * fwdVel), Math.abs(this.yawRate * fwdVel)) * GT3_REAR_LATERAL_DEMAND
+      + Math.abs(rearAxleLateralVelocity) * 0.045 * Math.min(1, speed / 0.35);
+    const rearDemandRatio = rearDemand / Math.max(rearGrip, 0.001);
+    let rearLateralUse = Math.min(0.96, rearDemandRatio);
     let rearLongLimit = rearGrip * Math.sqrt(Math.max(0.04, 1 - rearLateralUse ** 2));
     let driveRequest = Math.max(0, engineAccelFinal);
     this.tcActive = driveRequest > rearLongLimit && throttleInput > 0.25;
     let driveAccel = Math.min(driveRequest, rearLongLimit * (this.tcActive ? 1.03 : 1));
     let excessDrive = Math.max(0, driveRequest - rearLongLimit);
+    const targetRearSlip = Math.min(1.5, excessDrive / Math.max(rearGrip, 0.001)
+      + Math.max(0, rearDemandRatio - 1) * 0.65);
+    this.rearSlip += (targetRearSlip - this.rearSlip) * (targetRearSlip > this.rearSlip ? 0.16 : 0.07);
+    const sliding = Math.min(1, this.rearSlip);
+    const rearGripRetention = 1 - sliding * GT3_REAR_SLIDE_GRIP_LOSS;
+    driveAccel *= rearGripRetention;
+
+    // Menos estabilização automática quando o eixo traseiro desliza.
+    this.yawRate += (desiredYawRate * yawAuthority - this.yawRate)
+      * (0.075 + 0.12 * frontUse) * (1 - sliding * GT3_YAW_RECOVERY_LOSS);
 
     let brakeRequest = this.brakePressure * FORCA_FREIO_MAX;
     let brakeLimit = totalGrip * (1 - Math.min(0.45, Math.abs(latVel) / 0.45));
     this.absActive = brakeRequest > brakeLimit * (1 + GT3_ABS_SLIP_LIMIT);
     let brakeAccel = Math.min(brakeRequest, brakeLimit * (this.absActive ? 1.04 : 1));
 
-    this.vx += headingX * (driveAccel - brakeAccel - Math.max(0, -engineAccelFinal));
-    this.vy += headingY * (driveAccel - brakeAccel - Math.max(0, -engineAccelFinal));
+    // S brakes to a stop before requesting reverse. Drag opposes signed motion.
+    const reverseLimit = MAX_INTERNAL_SPEED * 50 / MAX_SPEED_KMH;
+    const reversing = !this.isBot && this.lastBrakeInput > 0 && throttleInput === 0 && fwdVel <= 0;
+    const signedBrake = reversing
+      ? -Math.min(brakeAccel * 0.35, rearLongLimit, Math.max(0, reverseLimit + fwdVel))
+      : -Math.sign(fwdVel) * Math.min(brakeAccel, Math.abs(fwdVel));
+    let longitudinalDelta = driveAccel + signedBrake - Math.max(0, -engineAccelFinal);
+    // A hard safety bound only on reverse; retain sideways slide and forward momentum.
+    longitudinalDelta = Math.max(longitudinalDelta, -reverseLimit - fwdVel);
+    this.vx += headingX * longitudinalDelta;
+    this.vy += headingY * longitudinalDelta;
 
     // Relaxamento lateral limitado: ao exceder o grip, a velocidade transversal persiste.
-    let lateralCapacity = Math.max(0.012, totalGrip - Math.abs(driveAccel - brakeAccel) * 0.55);
+    let lateralCapacity = Math.max(0.012, frontGrip + rearGrip * rearGripRetention - Math.abs(driveAccel - brakeAccel) * 0.55);
     let lateralCorrection = Math.min(Math.abs(latVel), lateralCapacity) * 0.38;
     this.vx -= rightX * Math.sign(latVel) * lateralCorrection;
     this.vy -= rightY * Math.sign(latVel) * lateralCorrection;
 
-    // Torque da derrapagem traseira: acelerador demais com volante aplicado solta a traseira.
-    this.rearSlip += (excessDrive / Math.max(rearGrip, 0.001) - this.rearSlip) * 0.16;
-    this.rearSlip *= throttleInput > 0.05 ? 0.995 : 0.91;
-    let oversteerTorque = steerInput * this.rearSlip * 0.038 * Math.min(1.2, speed / 0.45);
-    this.yawRate += oversteerTorque;
+    // A deriva no eixo traseiro mantém o sentido do giro até recuperar aderência.
+    const rearAxleSlipAngle = Math.atan2(latVel - this.yawRate * GT3_WHEELBASE * 0.5, Math.abs(fwdVel) + 0.05);
+    const boundedRearAngle = Math.max(-0.35, Math.min(0.35, rearAxleSlipAngle));
+    // Countersteering gives the front axle authority while the rear is sliding.
+    // No auto-straightening: wrong/neutral steering retains the existing spin dynamics.
+    const bodySlip = Math.atan2(latVel, Math.max(0.001, fwdVel));
+    const countersteer = fwdVel > 0 && steerInput * bodySlip > 0
+      ? Math.min(1, Math.abs(bodySlip) / DRIFT_CONTROL.slipWindow) * Math.abs(steerInput)
+        * Math.max(0, Math.min(1, (DRIFT_CONTROL.fadeAngle - Math.abs(bodySlip)) / DRIFT_CONTROL.fadeRange)) : 0;
+    let oversteerTorque = -boundedRearAngle * sliding * GT3_OVERSTEER_GAIN * Math.min(1, speed / 0.45);
+    this.yawRate += oversteerTorque * (1 - countersteer * DRIFT_CONTROL.oversteerRelief);
+    this.yawRate += (desiredYawRate * yawAuthority - this.yawRate)
+      * countersteer * DRIFT_CONTROL.yawResponse * Math.min(1, frontGrip / 0.02);
+    // Evita ganho angular ilimitado e dissipa a rodada quando o carro para.
+    this.yawRate *= 0.98 * Math.min(1, speed / 0.15);
+    // At crawling speed, follow the rolling wheels instead of damping away all steering.
+    // The kinematic target is zero at rest; gravel remains loose at racing speed.
+    this.yawRate += (desiredYawRate - this.yawRate) * gravelManeuver;
+    this.yawRate = Math.max(-GT3_MAX_YAW_RATE, Math.min(GT3_MAX_YAW_RATE, this.yawRate));
     this.angle += this.yawRate;
 
     // Temperatura e desgaste: travar, deslizar e abusar da zebra superaquecem os pneus.
@@ -433,9 +498,12 @@ export class Car {
 
     // INÉRCIA ALTA NO ASFALTO (drag = 0.9975 -> Rola livremente aproveitando todo o embalo!)
     let drag = 0.9975;
+    drag += boostCoast * (BOOST_TUNING.coastRollingDrag - drag);
     if (this.currentSurface === 'KERB') drag = 0.993;
     if (this.currentSurface === 'RUNOFF') drag = 0.989;
-    if (this.currentSurface === 'GRAVEL') drag = 0.88; // Desacelera forte na brita
+    if (this.currentSurface === 'GRAVEL') drag = GRAVEL_HANDLING.lowSpeedDrag
+      + (GRAVEL_HANDLING.highSpeedDrag - GRAVEL_HANDLING.lowSpeedDrag)
+      * Math.min(1, speed / GRAVEL_HANDLING.dragBlendSpeed);
 
     this.vx *= drag; this.vy *= drag;
     this.x += this.vx; this.y += this.vy;

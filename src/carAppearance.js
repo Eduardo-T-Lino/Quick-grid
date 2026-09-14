@@ -1,6 +1,7 @@
 // Artwork only. Metre-sized sprite bounds do not define collision geometry.
 const sprites = new WeakMap();
 const SCALE = 40, WIDTH = 6.4, HEIGHT = 3.2;
+export const CAR_VISUAL_SCALE = 1.10;
 function polygon(ctx, points, color) {
   ctx.fillStyle = color; ctx.beginPath();
   points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
@@ -59,6 +60,7 @@ export function getCarSprite(car) {
 }
 export function drawCarAppearance(ctx, car, pose = car) {
   ctx.save(); ctx.translate(pose.x, pose.y); ctx.rotate(pose.angle);
+  ctx.scale(CAR_VISUAL_SCALE, CAR_VISUAL_SCALE);
   ctx.drawImage(getCarSprite(car), -WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT);
   // Steering and braking stay live, drawn on top of the baked body.
   for (const side of [-1, 1]) {

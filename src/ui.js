@@ -2,6 +2,8 @@ import { ctx } from './canvas.js';
 import { MAX_SPEED_KMH, MAX_INTERNAL_SPEED } from './constants.js';
 import { state } from './game.js';
 import { createLeaderboardView } from './leaderboardView.js';
+import { WAKE_TUNING } from './aerodynamics.js';
+import { BOOST_TUNING } from './boost.js';
 
 function setHudText(id, value) {
   const element = document.getElementById(id);
@@ -10,6 +12,7 @@ function setHudText(id, value) {
 }
 
 let updateLeaderboard;
+const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export function updateHUD() {
   const p1 = state.cars[0];
@@ -26,7 +29,7 @@ export function updateHUD() {
 
   setHudText('player-name', p1.name);
   setHudText('speed-val', p1.getKmh());
-  setHudText('gear-val', `${p1.gear}ª MARCHA`);
+  setHudText('gear-val', p1.vx * Math.cos(p1.angle) + p1.vy * Math.sin(p1.angle) < -0.005 ? 'R' : String(p1.gear));
   setHudText('mode-tag', p1.isAuto ? 'AUTO' : 'MANUAL');
   const tyreStatus = document.getElementById('tyre-status');
   const assistStatus = document.getElementById('assist-status');
@@ -35,13 +38,35 @@ export function updateHUD() {
   tyreStatus.style.color = tyreTemp < 60 ? '#65b9ff' : (tyreTemp > 112 ? '#ff684f' : '#7dff9a');
   setHudText('assist-status', p1.tcActive ? 'TC ATUANDO' : (p1.absActive ? 'ABS ATUANDO' : 'TC / ABS'));
   assistStatus.style.color = (p1.tcActive || p1.absActive) ? '#ffd45a' : '#9eabb8';
+  const wakeStatus = document.getElementById('wake-status');
+  if (wakeStatus) {
+    const active = p1.wakeIntensity > 0.08;
+    const label = active ? `VÁCUO · CARGA AERO −${Math.round(p1.wakeIntensity * WAKE_TUNING.downforceLoss * 100)}%` : 'AR LIMPO';
+    if (wakeStatus.textContent !== label) wakeStatus.textContent = label;
+    wakeStatus.style.color = active ? '#ffd45a' : '#9eabb8';
+  }
+
+  const boostHud = document.getElementById('boost-hud');
+  if (boostHud) {
+    const percent = Math.round(p1.boostCharge * 100);
+    const status = state.isPaused ? 'PAUSADO' : state.racePhase !== 'racing' ? 'AGUARDE' : p1.finished ? 'ENCERRADO'
+      : p1.boostActive ? 'ATIVO' : p1.boostNeedsRelease ? 'SOLTE ESPAÇO'
+      : p1.boostCooldown > 0 || p1.boostCharge < BOOST_TUNING.minCharge ? 'RECARREGANDO'
+      : p1.currentSurface !== 'TARMAC' ? 'SÓ NO ASFALTO' : 'PRONTO';
+    setHudText('boost-status', `${status} · ${percent}%`);
+    boostHud.classList.toggle('is-active', p1.boostActive && !state.isPaused);
+    const meter = document.getElementById('boost-meter');
+    if (meter.getAttribute('aria-valuenow') !== String(percent)) {
+      meter.setAttribute('aria-valuenow', String(percent));
+      document.getElementById('boost-fill').style.transform = `scaleX(${percent / 100})`;
+    }
+  }
 
   let rpmPercent = Math.min(100, Math.max(0, ((p1.rpm - 1000) / 7500) * 100));
   document.getElementById('rpm-bar').style.transform = `scaleX(${rpmPercent / 100})`;
 
   const shiftTextEl = document.getElementById('shift-text');
   const shiftAlertEl = document.getElementById('shift-alert');
-  const physicsAlertEl = document.getElementById('physics-alert');
 
   // Alerta de Troca de Marcha
   if (!p1.isAuto && !p1.finished) {
@@ -70,26 +95,8 @@ export function updateHUD() {
     shiftTextEl.style.color = '#ffffff';
   }
 
-  // Alertas de Física & Superfície (Brita, Sub/Sobre-esterço)
-  if (p1.currentSurface === 'GRAVEL' && !p1.finished) {
-    setHudText('physics-alert', '⚠️ CAIXA DE BRITA! (PERDA DE ADERÊNCIA)');
-    physicsAlertEl.className = 'alert-gravel';
-    physicsAlertEl.style.display = 'block';
-  } else if (state.trackCondition === 'wet' && !p1.finished && (p1.tcActive || p1.absActive)) {
-    setHudText('physics-alert', '🌧️ PISTA MOLHADA — TC / ABS ATUANDO');
-    physicsAlertEl.className = 'alert-understeer';
-    physicsAlertEl.style.display = 'block';
-  } else if (p1.physicsState === 'UNDERSTEER' && !p1.finished) {
-    setHudText('physics-alert', '⚠️ PASSANDO RETO! (SUB-ESTERÇO)');
-    physicsAlertEl.className = 'alert-understeer';
-    physicsAlertEl.style.display = 'block';
-  } else if (p1.physicsState === 'OVERSTEER' && !p1.finished) {
-    setHudText('physics-alert', '🚨 TRASEIRA SOLTA! (SOBRE-ESTERÇO)');
-    physicsAlertEl.className = 'alert-oversteer';
-    physicsAlertEl.style.display = 'block';
-  } else {
-    physicsAlertEl.style.display = 'none';
-  }
+  // Tyre/assist readings stay in the instrument panel; no intrusive grip alerts.
+  document.getElementById('physics-alert').style.display = 'none';
 
   updateLeaderboard ||= createLeaderboardView(document.getElementById('hud-leaderboard'));
   updateLeaderboard(state);
@@ -126,7 +133,7 @@ export function showVictoryScreen() {
   } else {
     podiumHTML += finalStandings.map((car, idx) => `
       <div style="color: ${car.color}; font-weight: bold; margin-bottom: 3px;">
-        ${idx + 1}º Lugar: ${car.name} ${car.totalRaceTime ? `(${car.totalRaceTime.toFixed(2)}s)` : '(DNF)'}
+        ${idx + 1}º Lugar: ${escapeHtml(car.name)} ${car.totalRaceTime ? `(${car.totalRaceTime.toFixed(2)}s)` : '(DNF)'}
       </div>
     `).join('');
   }

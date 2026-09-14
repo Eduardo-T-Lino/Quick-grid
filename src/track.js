@@ -10,6 +10,7 @@ import { getVisibleTrackRenderPaths, getRenderBounds, withinRenderBounds } from 
 import { getTrackMaterials } from './trackAppearance.js';
 import { TrackTileCache } from './trackTileCache.js';
 import { drawTrackScenery } from './trackScenery.js';
+import { getStartingGrid, drawGridSlot } from './startingGrid.js';
 
 // Dicionário de Nomes Oficiais das Curvas F1 por Pista
 const TRACK_SECTORS = {
@@ -520,31 +521,9 @@ function paintTrack(ctx, detailBounds, materials) {
   }
   ctx.restore();
 
-  // 8. GRID DE LARGADA DEMARCADO (Slots 1º ao 20º em metros reais)
-  for (let slot = 0; slot < 10; slot++) {
-    let slotDist = 8 + slot * 9;
-    let gridIdx = (totalPoints - Math.floor(slotDist * 2.5) + totalPoints) % totalPoints;
-    let gp = trackPath[gridIdx];
-    if (!withinRenderBounds(gp, detailBounds)) continue;
-
-    [-1, 1].forEach((colSide, colIdx) => {
-      let slotNum = slot * 2 + colIdx + 1;
-      let slotX = gp.x + (gp.normalX * colSide * 4.5);
-      let slotY = gp.y + (gp.normalY * colSide * 4.5);
-
-      ctx.save();
-      ctx.translate(slotX, slotY);
-      ctx.rotate(gp.angle);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-      ctx.lineWidth = 0.30;
-      ctx.strokeRect(-2.6, -1.3, 5.2, 2.6);
-
-      ctx.font = 'bold 1.1px sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.textAlign = 'center';
-      ctx.fillText(slotNum.toString(), 0, 0.4);
-      ctx.restore();
-    });
+  // 8. The painted boxes and starting cars use exactly the same cached poses.
+  for (const slot of getStartingGrid(trackPath, trackWidth)) {
+    if (withinRenderBounds(slot, detailBounds)) drawGridSlot(ctx, slot);
   }
 
   // 9. PLACAS DE METROS DE FRENAGEM (150m, 100m, 50m)

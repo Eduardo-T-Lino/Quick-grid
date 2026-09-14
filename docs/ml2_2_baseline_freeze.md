@@ -1,8 +1,32 @@
 # ML2.2 baseline freeze
 
+## Revisão boost 350 / HUD / bots / senha mínima
+
+Runtime `0.6.1-ml2`, física `1.8.1-gt3-boost350`, fingerprint `aac9ec64f1694bd66120f1958de9563c79ed2f573eb264bad000c6f863f6d534`. Boost com teto independente de 350 km/h; fora dele, teto de motor de 320 km/h, preservando inércia ao terminar. Sexta marcha em 1.72. Nenhuma reclassificação de dados históricos. UI permite 1–19 bots, HUD mais legível sem alertas de perda de aderência e cadastro com mínimo de 6 caracteres. Demais proteções de autenticação preservadas.
+
+## Revisão 320 km/h, brita e boost
+
+Runtime `0.6.0-ml2`, física `1.8.0-gt3-boost`, fingerprint `68422530c13eebe85e59b38f26b687d28678b7d6e6ceb6ba416f4cad78f230ec`.
+Limite positivo do motor ajustado para 320 km/h com sexta marcha alongada; calibração de velocidade e geometria históricas preservadas. Brita usa resistência progressiva e giro cinemático em baixa velocidade. Boost de potência temporária para o jogador, controlado por Espaço, limitado pela aderência traseira e pelo mesmo teto de velocidade. Esta revisão não é automaticamente compatível com os datasets aceitos: boost é um controle adicional não representado nos três alvos legados de ação. Não usar essas sessões para treino sem revisão explícita de features/ações. Snapshot aceito e dados históricos intactos; nenhum deploy ou migração.
+
+## Revisão de velocidade e grid — 10/09/2026
+
+Runtime `0.5.1-ml2`, física `1.7.1-gt3-grid`, fingerprint `014209f8e8e3737ff43e8119aad8e50d358fb68f84c3554986c90ba3c282c00c`.
+Potência e relações de marcha anteriores à redução restauradas, com referência de limite de motor de 285 km/h. Tração traseira, pneus e vácuo preservados. Grid intercalado de 20 posições, por distância real ao longo da pista, compartilhado entre pintura e carros; sem alterar os pontos da pista. Snapshot histórico aceito preservado, sem aceitação automática de novos datasets ou deploy.
+
 Status do documento: baseline de lineage congelado para a aceitação ML2.2. Isto não inicia ML3.
 
+## Revisão posterior — tração em curva
+
+O histórico de aceitação abaixo permanece referente ao freeze original. O ajuste solicitado posteriormente aumenta somente o coeficiente de demanda lateral traseira de 0.48 para 0.51 (+6,25%), mantendo o teto de utilização 0.96 e os controles de direção/motor. Em reta a demanda permanece zero; em curva a margem para acelerar é ligeiramente menor. O modelo continua compartilhado por jogador e bots, sem alteração das decisões da IA.
+
+Esta mudança é classe E (transição física), identificada por `GAME_BUILD_VERSION = 0.3.1-ml2`, `PHYSICS_VERSION = 1.5.1-gt3` e fingerprint `a061e1e63b2de5d2ea75209643f7e0f5c762e76775c47735c1e51005cca0c89e`. Schema, features e geometria não mudam. O código do backend compartilha as versões canônicas; não houve deploy nem reescrita de dados históricos. Não misturar automaticamente a nova física com o baseline aceito em análises/datasets. Os testes e evidências de produção anteriores não homologam esta revisão.
+
 ## Baseline auditado
+
+Revisão vácuo/contas: runtime `0.5.0-ml2`, física `1.7.0-gt3-wake`, fingerprint `48f91c0a670077148b4995cfd55585bafbce74a1a3c0d8f99c0830764cb2e125`. Aderência básica 0.047, força por marcha parcialmente restaurada e esteira aerodinâmica com redução de arrasto/carga. O snapshot aceito permanece inalterado. Contas não são vinculadas à telemetria.
+
+Revisão RWD posterior: runtime `0.4.0-ml2`, física `1.6.0-gt3-rwd`, fingerprint `93e0cd9aae3035043f7e65a591ed821801d0b6b7c9edf9510b8178a8efa134e6`. Motor com aproximadamente 46–65% menos força por marcha que o baseline original (redução maior nas baixas) e corte em 1.14 m/tick (~241 km/h na escala do HUD), sem mudar a escala/geometria dos circuitos. A derrapagem traseira passa a reduzir sustentação lateral e estabilização de giro, com recuperação gradual. O inventário continua usando o snapshot histórico `acceptedBaseline.js`; esta física nova não passa automaticamente pelo baseline de treino. Sem deploy ou alteração de dados históricos nesta revisão.
 
 O primeiro e último ponto anterior às mudanças auditadas em que as versões antigas já estavam estabelecidas é `b956149` (`chore: establish Quick-grid ML2.2 deployment baseline`, 2026-09-03). Foram inspecionados os nove commits seguintes até `8603f654c4675dca056851e9251fe390e0b3297c`, incluindo os diffs reais de `car.js`, `game.js`, `track.js`, `ai.js`, `constants.js`, `src/ml/**`, controles, fixed timestep, superfícies e telemetria.
 
@@ -64,3 +88,23 @@ Novas sessões anunciam as versões no registro normal de `telemetry_sessions` e
 | Novos datasets automatizados pós-freeze ML2.2-J | `VALIDATION_ONLY` | Não por padrão | Podem validar pipeline/simulação; só viram demonstração de treino mediante política explícita futura, fora da ML2.2. |
 
 O classificador deve usar a lineage gravada, nunca data aproximada ou reclassificação retroativa. Dados antigos preservam para sempre os metadados com os quais foram capturados.
+
+## Revisão local: boost 400, ré limitada e vácuo progressivo
+
+Build `0.6.2-ml2`, física `1.8.2-gt3-boost400`; fingerprint
+`b683fc8c003aa632a280ee14823ba1536b568de59d088696d9c975ff8fefd5e9`.
+Máxima normal 320 km/h, boost até 400 km/h, ré até 50 km/h. Vácuo libera
+até 30 km/h adicionais, no máximo 2 km/h por segundo de permanência, proporcional à intensidade.
+Geometria, versões de schema/features e baseline de aceitação histórico preservados.
+Esta revisão não autoriza novos dados para treino: o boost ainda não faz parte dos três targets legados.
+
+## Revisão local: recuperação de drift e embalo pós-boost
+
+Build `0.6.3-ml2`, física `1.8.3-gt3-drift-coast`; fingerprint
+`53193ebb1921ecd3f56638054d0acf8fa31d1d7c7647f0e85349a32b96319173`.
+Mantém 320 km/h normal, 400 com boost e 50 de ré. Embalo conquistado com boost
+perde velocidade mais lentamente no asfalto, com transição perto do limite normal;
+frear ou sair do asfalto cancela esse benefício. Contraesterço recupera autoridade
+do eixo dianteiro durante uma traseirada, sem alinhar o carro automaticamente.
+Geometria, dificuldade de entrada em derrapagem, schema/features e baseline histórico
+preservados. Sem módulo online, treino ou ML3 nesta revisão.

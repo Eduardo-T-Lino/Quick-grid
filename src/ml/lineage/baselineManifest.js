@@ -1,12 +1,13 @@
-// ML2.2 accepted-lineage metadata. This module must stay browser/server neutral.
+// Current runtime lineage. Historical acceptance is preserved in acceptedBaseline.js.
+// This module must stay browser/server neutral.
 
 export const BASELINE_MANIFEST_FORMAT_VERSION = 1;
 
 export const TELEMETRY_LINEAGE_VERSIONS = Object.freeze({
   SCHEMA_VERSION: 2,
-  GAME_BUILD_VERSION: '0.3.0-ml2',
+  GAME_BUILD_VERSION: '0.6.3-ml2',
   TRACK_GEOMETRY_VERSION: '1.5.0-centripetal',
-  PHYSICS_VERSION: '1.5.0-gt3',
+  PHYSICS_VERSION: '1.8.3-gt3-drift-coast',
   FEATURE_MANIFEST_VERSION: '2.1.0',
   CONSENT_VERSION: '1.0.0'
 });
@@ -41,12 +42,32 @@ export const BASELINE_MANIFEST = deepFreeze({
     brakeSmoothing: 0.12,
     maxBrakeForce: 0.020,
     wheelbaseMeters: 2.70,
-    baseGrip: 0.052,
+    baseGrip: 0.047,
     aeroGrip: 0.030,
+    rearLateralDemand: 0.60,
+    drivenAxle: 'rear',
+    engineSpeedLimitMetersPerTick: 1.35 * 320 / 285,
+    boost: { duration: 3, recharge: 12, delay: 2, minCharge: 0.2, power: 2.1, maxSpeedKmh: 400,
+      coastAeroFactor: 0.15, coastRollingDrag: 0.9997, coastBlendKmh: 20 },
+    driftControl: { slipWindow: 0.25, fadeAngle: 1.05, fadeRange: 0.4, yawResponse: 0.16, oversteerRelief: 0.65 },
+    reverse: { maxSpeedKmh: 50, driveFraction: 0.35, signedBrakingAndDrag: true },
+    gravelHandling: { lowSpeedDrag: 0.985, highSpeedDrag: 0.88,
+      dragBlendSpeed: 0.5, maneuverSpeed: 0.18, extraSteer: 0.35 },
+    rearSlideGripLoss: 0.45,
+    oversteerGain: 0.035,
+    yawRecoveryLoss: 0.65,
+    maxYawRate: 0.10,
+    rearSlip: { max: 1.5, lateralExcessGain: 0.65, rise: 0.16, recovery: 0.07,
+      axleAngleSpeedFloor: 0.05, axleLateralDemandGain: 0.045, axleDemandFadeSpeed: 0.35,
+      maxAxleAngle: 0.35, torqueFadeSpeed: 0.45, yawDamping: 0.98, yawStopFadeSpeed: 0.15 },
     tractionControlSlipLimit: 0.105,
     absSlipLimit: 0.165,
-    gearSpeeds: [0, 0.25, 0.46, 0.68, 0.90, 1.13, 1.38],
+    gearSpeeds: [0, 0.25, 0.46, 0.68, 0.90, 1.13, 1.72],
     gearPower: [0, 0.028, 0.024, 0.021, 0.018, 0.016, 0.014],
+    wake: { range: 70, nearFade: 3, minGap: 3, halfWidth: 2.8, spread: 0.025,
+      minSpeed: 0.25, fullSpeed: 0.9, headingAlignment: 0.8, maxHeightGap: 3,
+      dragLoss: 0.55, downforceLoss: 0.40, response: 0.12,
+      accelerationGain: 0.18, extraSpeedKmh: 30, unlockKmhPerSecond: 2 },
     steeringApplication: {
       roadWheelAngleRadiansAtZeroSpeed: 0.32,
       roadWheelAngleSpeedReductionRadians: 0.20
@@ -60,6 +81,7 @@ export const BASELINE_MANIFEST = deepFreeze({
     keyboardSteeringReturnPerTick: 0.12,
     keyboardSteeringDeadzone: 0.01
   },
+  startingGrid: { slots: 20, firstGap: 6, slotGap: 8, laneOffset: 4.5 },
   geometry: {
     algorithm: 'centripetal-catmull-rom',
     alpha: 0.5,
@@ -98,7 +120,7 @@ export const BASELINE_MANIFEST = deepFreeze({
 });
 
 // SHA-256 of stableSerialize(BASELINE_MANIFEST); verified by test:ml22:final.
-export const SIMULATION_FINGERPRINT_SHA256 = '919c932171a41a44d40af1d86df530a8f3db911b030691b68908766712a6c16c';
+export const SIMULATION_FINGERPRINT_SHA256 = '53193ebb1921ecd3f56638054d0acf8fa31d1d7c7647f0e85349a32b96319173';
 
 export function stableSerialize(value) {
   if (value === null || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string') {

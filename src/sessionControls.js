@@ -26,10 +26,12 @@ export function initSessionControls() {
     dialog.close(); resumeGame(); byId('gameCanvas').focus({ preventScroll: true });
   }
   function showPause() {
+    if (state.onlineSession) { state.keys = {}; state.onlineSession.menu(); return; }
     if (busy || state.raceFinished || !state.isRunning) return;
     pauseGame(); mode = 'pause'; render();
   }
   function showRestart() {
+    if (state.onlineSession) { state.keys = {}; state.onlineSession.menu(); return; }
     if (busy || !state.isRunning || mode === 'restart' && dialog.open) return;
     returnToPause = state.isPaused;
     pauseGame(); mode = 'restart'; render();

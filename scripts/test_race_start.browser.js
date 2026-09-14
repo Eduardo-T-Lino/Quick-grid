@@ -2,10 +2,13 @@
 (async () => {
   const checks = [];
   const assert = (value, label) => { if (!value) throw new Error(label); checks.push(label); };
-  const { state, backToMenu } = await import('/src/game.js');
-  const { raceStart } = await import('/src/raceStart.js');
-  const { Car } = await import('/src/car.js');
-  const { mlTelemetry } = await import('/src/ml/telemetry/index.js');
+  // Match Vite's loaded module identity after HMR (avoids a second game state).
+  const moduleUrl = path => performance.getEntriesByType('resource').find(entry => new URL(entry.name).pathname === path)?.name || path;
+  const { state, backToMenu } = await import(moduleUrl('/src/game.js'));
+  const { raceStart } = await import(moduleUrl('/src/raceStart.js'));
+  const { Car } = await import(moduleUrl('/src/car.js'));
+  const { getStartingGrid } = await import(moduleUrl('/src/startingGrid.js'));
+  const { mlTelemetry } = await import(moduleUrl('/src/ml/telemetry/index.js'));
   const byId = id => document.getElementById(id);
   const originalFetch = window.fetch;
   window.fetch = (url, opts) => String(url).startsWith('http://localhost:3001/api/')
@@ -19,6 +22,12 @@
   try {
     await window.startGame();
     assert(state.racePhase === 'countdown' && state.cars.length === 20, '19 bots and player enter countdown');
+    const slots = getStartingGrid(state.trackPath, state.selectedTrackData.trackWidth || 24);
+    assert(state.cars.every(car => {
+      const slot = slots[car.rank - 1];
+      return car.x === slot.x && car.y === slot.y && car.angle === slot.angle && car.pathIndex === slot.pathIndex;
+    }), 'All 20 cars occupy the corresponding numbered grid boxes');
+    assert(state.cars[0].rank === 20, 'Player keeps the last grid position with 19 bots');
     const initial = motion(), track = geometry(), cars = state.cars;
     state.keys.KeyW = true;
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowUp' }));
