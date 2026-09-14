@@ -4,6 +4,7 @@ import { state } from './game.js';
 import { createLeaderboardView } from './leaderboardView.js';
 import { WAKE_TUNING } from './aerodynamics.js';
 import { BOOST_TUNING } from './boost.js';
+import { bindingLabel } from './controlBindings.js';
 
 function setHudText(id, value) {
   const element = document.getElementById(id);
@@ -50,7 +51,7 @@ export function updateHUD() {
   if (boostHud) {
     const percent = Math.round(p1.boostCharge * 100);
     const status = state.isPaused ? 'PAUSADO' : state.racePhase !== 'racing' ? 'AGUARDE' : p1.finished ? 'ENCERRADO'
-      : p1.boostActive ? 'ATIVO' : p1.boostNeedsRelease ? 'SOLTE ESPAÇO'
+      : p1.boostActive ? 'ATIVO' : p1.boostNeedsRelease ? `SOLTE ${bindingLabel('boost')}`
       : p1.boostCooldown > 0 || p1.boostCharge < BOOST_TUNING.minCharge ? 'RECARREGANDO'
       : p1.currentSurface !== 'TARMAC' ? 'SÓ NO ASFALTO' : 'PRONTO';
     setHudText('boost-status', `${status} · ${percent}%`);

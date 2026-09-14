@@ -104,11 +104,21 @@
         <div id="records-empty" class="records-empty"><span class="records-flag" aria-hidden="true"></span><h3 id="records-empty-title">SEU PRIMEIRO TEMPO VEM AÍ.</h3><p id="records-empty-description">Complete uma volta para marcar seu lugar aqui.</p><button id="records-race" type="button" class="menu-primary">PREPARAR UMA CORRIDA <span aria-hidden="true">↗</span></button></div>
       </section>
 
-      <footer class="paddock-footer"><div class="keyboard-hints"><span><kbd>W</kbd><kbd>S</kbd> PEDAL</span><span><kbd>A</kbd><kbd>D</kbd> DIREÇÃO</span><span><kbd>↑</kbd><kbd>↓</kbd> MARCHAS</span></div><div class="footer-actions"><span>FEITO PARA QUEM GOSTA DE CORRER.</span><button type="button" id="clear-records" class="quiet-button">Limpar recordes <span aria-hidden="true">↗</span></button></div></footer>
+      <footer class="paddock-footer"><div class="keyboard-hints"><span><kbd data-control-hint="accelerate">W</kbd><kbd data-control-hint="brake">S</kbd> PEDAL</span><span><kbd data-control-hint="left">A</kbd><kbd data-control-hint="right">D</kbd> DIREÇÃO</span><span><kbd data-control-hint="shiftUp">↑</kbd><kbd data-control-hint="shiftDown">↓</kbd> MARCHAS</span></div><div class="footer-actions"><span>FEITO PARA QUEM GOSTA DE CORRER.</span><button type="button" id="clear-records" class="quiet-button">Limpar recordes <span aria-hidden="true">↗</span></button></div></footer>
     </div>
   </main>
 
-  <dialog id="controls-dialog" aria-labelledby="controls-title"><div class="dialog-heading"><span class="eyebrow">GUIA DO PILOTO</span><form method="dialog"><button class="quiet-button" aria-label="Fechar controles">✕</button></form></div><h2 id="controls-title">ASSUMA O VOLANTE.</h2><p>Use o teclado para pilotar. Os comandos são os mesmos em todos os circuitos.</p><div class="controls-grid"><div><kbd>W</kbd><span>Acelerar</span></div><div><kbd>S</kbd><span>Frear / marcha à ré</span></div><div><kbd>A</kbd><kbd>D</kbd><span>Esterçar</span></div><div><kbd>↑</kbd><kbd>↓</kbd><span>Subir / reduzir marcha</span></div><div><kbd>ESPAÇO</kbd><span>Boost — segure junto com W no asfalto</span></div></div><p class="dialog-note">Boost: até 3 segundos de potência extra, com limite próprio de 350 km/h (320 sem boost). Solte Espaço para recarregar: 2 segundos de espera e até 12 segundos de recarga. Disponível novamente a partir de 20% de carga. Na transmissão automática, as marchas são trocadas pelo carro. Para pilotar, conecte um teclado.</p><form method="dialog"><button class="btn-main">ENTENDIDO. VAMOS CORRER.</button></form></dialog>
+  <dialog id="controls-dialog" aria-labelledby="controls-title">
+    <div class="dialog-heading"><span class="eyebrow">CONFIGURAÇÃO / CONTROLES</span><form method="dialog"><button class="quiet-button" aria-label="Fechar controles">✕</button></form></div>
+    <h2 id="controls-title">SEU JEITO DE PILOTAR.</h2>
+    <p>Escolha um layout ou clique nas teclas para personalizar. As escolhas são deste navegador e funcionam no offline e no online.</p>
+    <div class="control-presets" aria-label="Layouts prontos"><button id="controls-wasd" type="button">WASD <small>W/S · A/D · ↑/↓</small></button><button id="controls-arrows" type="button">SETAS <small>↑/↓ · ←/→ · E/Q</small></button></div>
+    <p id="controls-message" role="status" aria-live="polite"></p><button id="controls-cancel-key" type="button" hidden>Cancelar captura</button>
+    <div id="controls-bindings" class="control-bindings" aria-label="Teclas de pilotagem"></div>
+    <p class="dialog-note"><kbd>ESC</kbd> abre o menu; <kbd>R</kbd> abre reinício (no online, ambos abrem o menu sem pausar a corrida). Essas teclas ficam reservadas. Troca manual só atua na transmissão manual. Teclado apenas nesta versão; as teclas seguem a posição física do teclado.</p>
+    <p class="dialog-note">Boost: segure <kbd data-control-hint="boost">ESPAÇO</kbd> junto com <kbd data-control-hint="accelerate">W</kbd> no asfalto. Solte a tecla do boost para recarregar. A configuração de teclas não altera a força, os limites de velocidade ou a direção.</p>
+    <footer class="controls-footer"><button id="controls-reset" type="button">Restaurar padrão</button><button id="controls-save" type="button" class="btn-main">SALVAR CONTROLES</button><form method="dialog"><button type="submit">VOLTAR</button></form></footer>
+  </dialog>
 
   <dialog id="track-dialog" aria-labelledby="track-dialog-title" aria-describedby="track-dialog-description">
     <header class="track-dialog-header">
@@ -135,6 +145,7 @@
     <div class="session-actions">
       <button id="session-resume" class="menu-primary" type="button">VOLTAR À PISTA <kbd>Esc</kbd></button>
       <button id="session-restart" class="menu-secondary" type="button">Reiniciar corrida <kbd>R</kbd></button>
+      <button id="session-controls" class="menu-secondary" type="button">Configurar controles</button>
       <button id="session-exit" class="menu-secondary" type="button">Voltar ao paddock <span aria-hidden="true">↗</span></button>
       <button id="session-confirm" class="menu-primary" type="button" hidden>REINICIAR CORRIDA <span aria-hidden="true">↗</span></button>
       <button id="session-cancel" class="menu-secondary" type="button" hidden>Continuar corrida atual <kbd>Esc</kbd></button>
@@ -166,7 +177,7 @@
     <div class="dash-instruments">
       <div class="gear-display"><span class="instrument-label">MARCHA</span><span class="gear-val" id="gear-val">1</span><span class="mode-tag" id="mode-tag">AUTO</span></div>
       <div class="dash-speed"><div class="speed-display"><span id="speed-val">0</span><span>KM/H</span></div><div class="shift-text" id="shift-text">1000 RPM</div><div class="rpm-container"><div class="rpm-bar" id="rpm-bar"></div></div>
-        <div id="boost-hud" class="boost-hud"><div id="boost-meter" class="boost-meter" role="progressbar" aria-label="Carga do boost" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="boost-fill"></div></div><div class="boost-label"><span>BOOST <kbd>ESPAÇO</kbd></span><span id="boost-status">PRONTO · 100%</span></div></div>
+        <div id="boost-hud" class="boost-hud"><div id="boost-meter" class="boost-meter" role="progressbar" aria-label="Carga do boost" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="boost-fill"></div></div><div class="boost-label"><span>BOOST <kbd data-control-hint="boost">ESPAÇO</kbd></span><span id="boost-status">PRONTO · 100%</span></div></div>
       </div>
     </div>
     <div class="telemetry-row"><span id="tyre-status">PNEUS 75°C</span><span id="assist-status">TC / ABS</span></div>
@@ -193,7 +204,7 @@
     <section id="online-room" hidden>
       <div class="online-room-heading"><div><small>CONVIDE SEUS AMIGOS</small><strong id="online-room-code"></strong></div><button id="online-copy" type="button">COPIAR CÓDIGO</button><span id="online-ping"></span></div>
       <div class="online-room-layout"><aside class="online-grid-panel"><div class="online-grid-heading"><h3>GRID DE PILOTOS</h3><span id="online-player-count">0 / 8</span></div><ol id="online-players"></ol></aside><div class="online-event-panel"><div class="online-event-heading"><h3 id="online-phase"></h3><span id="online-vote-clock" hidden></span></div><p id="online-detail"></p><div id="online-vote-progress" hidden><i></i></div><div id="online-track-preview" class="online-track-preview"></div><div id="online-votes" class="online-votes" aria-label="Votação de pista"></div><div id="online-results"></div></div></div>
-      <footer><button id="online-ready" type="button" aria-pressed="false">ESTOU PRONTO</button><button id="online-start" type="button" class="online-primary">INICIAR</button><button id="online-return" type="button" hidden>VOLTAR À PISTA</button><button id="online-leave" type="button">SAIR DA SALA</button></footer>
+      <footer><button id="online-ready" type="button" aria-pressed="false">ESTOU PRONTO</button><button id="online-start" type="button" class="online-primary">INICIAR</button><button id="online-return" type="button" hidden>VOLTAR À PISTA</button><button id="online-controls" type="button">CONTROLES</button><button id="online-leave" type="button">SAIR DA SALA</button></footer>
     </section>
   </dialog>
   <div id="online-race-note" hidden>ONLINE · ESC abre o menu sem pausar a corrida</div>

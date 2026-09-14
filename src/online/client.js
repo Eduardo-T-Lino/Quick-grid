@@ -59,6 +59,7 @@ export class OnlineClient extends EventTarget {
       const now = performance.now(), blocked = document.hidden || Boolean(document.querySelector('dialog[open]'));
       const keys = Object.fromEntries(INPUT_KEYS.map(k => [k, !blocked && Boolean(state.keys[k])]));
       const signature = INPUT_KEYS.map(k => Number(keys[k])).join(''), shift = blocked ? 0 : (this.shift || 0);
+      if (blocked) this.shift = 0;
       // Poll at frame cadence, transmit changed commands at <=30Hz and keepalive at 10Hz.
       if (now - (this.lastInputAt || 0) >= 34 && (signature !== this.lastInput || shift || now - this.lastInputAt >= 100)) {
         this.send({ type: 'input', seq: ++this.sequence, keys, shift });
@@ -85,6 +86,7 @@ export class OnlineClient extends EventTarget {
     if (state.isRunning) { this.transitioning = true; backToMenu(); this.transitioning = false; }
     mlTelemetry.stop();
     const session = { id: this.id, players: room.players, menu: () => this.event('menu'),
+      queueShift: value => { this.shift = value; },
       frame: now => this.frame(now), samplePose: (car, now) => this.snapshots.sample(car, now),
       diagnostics: () => this.snapshots.diagnostics(performance.now()) };
     try {

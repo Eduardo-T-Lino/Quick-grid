@@ -1,0 +1,23 @@
+#controls-dialog { width:min(650px,calc(100vw - 32px)); max-width:650px; padding:24px 28px; border-top-color:#f04c45; border-radius:6px; background:#141b26; }
+#controls-dialog::backdrop { background:#030712cf; backdrop-filter:none; }
+#controls-dialog [hidden] { display:none !important; }
+#controls-dialog button { width:auto; border:1px solid #43556e; border-radius:4px; background:#22324b; color:#e7efff; min-height:38px; font:600 11px 'Segoe UI',sans-serif; cursor:pointer; }
+#controls-dialog button:hover { background:#30486d; border-color:#82a8ef; }
+#controls-dialog button:focus-visible { outline:2px solid #a5c7ff; outline-offset:3px; }
+#controls-dialog .dialog-heading { display:flex; align-items:center; justify-content:space-between; }
+#controls-dialog .dialog-heading button { width:36px; padding:0; }
+#controls-dialog h2 { font-size:28px; margin:12px 0; }
+.control-presets { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:18px 0; }
+#controls-dialog .control-presets button { text-align:left; padding:12px 15px; font-size:13px; }
+.control-presets small { display:block; margin-top:6px; font:11px monospace; color:#a3b9de; }
+.control-bindings { display:grid; gap:1px; background:#344157; border:1px solid #344157; border-radius:4px; overflow:hidden; }
+.binding-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:7px 12px; background:#1a2433; }
+.binding-row > span { font-size:12px; color:#c5d1e5; }
+#controls-dialog .binding-row button { min-width:105px; min-height:32px; padding:7px 12px; font-family:monospace; font-size:13px; }
+#controls-dialog .binding-row button.is-listening { border-color:#f58377; color:#fff; background:#783b3c; font-size:10px; }
+#controls-message { position:sticky; top:-24px; z-index:2; padding:10px 0; background:#141b26; margin:8px 0; min-height:36px; color:#a7c7ff !important; }
+#controls-dialog .dialog-note { margin-top:10px; font-size:10px; }
+.controls-footer { position:sticky; bottom:-24px; padding:16px 0; background:#141b26; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-top:1px solid #354255; margin-top:16px; }
+#controls-dialog .controls-footer .btn-main { margin:0 0 0 auto; padding:12px; background:#eb4942; }
+#controls-dialog .controls-footer form { margin:0; }
+@media (max-width:480px) { #controls-dialog { padding:18px; } .binding-row { padding:7px 9px; } .binding-row > span { font-size:11px; } .controls-footer { bottom:-18px; } }

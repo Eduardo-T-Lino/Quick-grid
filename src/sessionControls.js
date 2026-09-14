@@ -15,6 +15,7 @@ export function initSessionControls() {
     byId('session-progress').textContent = `VOLTA ${Math.min(state.cars[0]?.currentLap || 1, state.totalLaps)} / ${state.totalLaps}`;
     byId('session-resume').hidden = restart;
     byId('session-restart').hidden = restart;
+    byId('session-controls').hidden = restart;
     byId('session-exit').hidden = restart;
     byId('session-confirm').hidden = !restart;
     byId('session-cancel').hidden = !restart;
@@ -63,6 +64,7 @@ export function initSessionControls() {
   window.addEventListener('quick-grid:menu', () => { if (!busy) dialog.close(); });
   window.addEventListener('keydown', event => {
     if (!state.isRunning || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (document.getElementById('controls-dialog').open) return;
     if (event.target.closest?.('input, select, textarea, [contenteditable="true"]')) return;
     if (event.code === 'KeyR') { event.preventDefault(); showRestart(); }
     else if (event.code === 'Escape' && !dialog.open) { event.preventDefault(); showPause(); }

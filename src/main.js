@@ -7,6 +7,9 @@ import './styles/raceSetup.css';
 import './styles/auth.css';
 import './styles/hud.css';
 import './styles/online.css';
+import './styles/controls.css';
+import { createKeyboardControls } from './controlBindings.js';
+import { initControlsSettings } from './controlsSettings.js';
 import { initOnline } from './online/ui.js';
 import { initAuth } from './auth.js';
 import { initSessionControls } from './sessionControls.js';
@@ -70,19 +73,11 @@ function populateTrackSelect() {
 }
 
 // ========== EVENT LISTENERS ==========
-window.addEventListener('keydown', e => {
-  if (e.target.closest?.('input, select, textarea, [contenteditable="true"]') || state.isPaused || document.querySelector('dialog[open]')) return;
-  if (state.isRunning && ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
-  state.keys[e.code] = true;
-  if (state.isRunning && state.racePhase === 'racing' && state.cars.length > 0 && !state.cars[0].isBot && !state.cars[0].finished) {
-    if (!state.onlineSession && !state.cars[0].isAuto) {
-      if (e.code === 'ArrowUp') state.cars[0].shiftUp();
-      if (e.code === 'ArrowDown') state.cars[0].shiftDown();
-    }
-  }
-});
-
-window.addEventListener('keyup', e => state.keys[e.code] = false);
+const keyboardControls = createKeyboardControls(() => state);
+window.addEventListener('keydown', e => keyboardControls.down(e, Boolean(e.target.closest?.('input, select, textarea, [contenteditable="true"]') || document.querySelector('dialog[open]'))));
+window.addEventListener('keyup', e => keyboardControls.up(e));
+window.addEventListener('blur', keyboardControls.clear);
+window.addEventListener('quick-grid:menu', keyboardControls.clear);
 window.addEventListener('resize', resizeCanvas);
 
 // ========== EXPOSE MENU FUNCTIONS TO HTML onclick ==========
@@ -101,3 +96,4 @@ initSessionControls();
 initTelemetryConsent();
 initAuth();
 initOnline();
+initControlsSettings(keyboardControls.clear);
