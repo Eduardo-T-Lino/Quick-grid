@@ -330,7 +330,12 @@ function safeDatabaseCode(error) {
   return allowed.has(error?.code) ? error.code : 'CLOUD_QUERY_FAILED';
 }
 
-export async function inventoryCloud({ databaseUrl = process.env.DATABASE_URL, sessionId, Pool = pg.Pool } = {}) {
+export async function inventoryCloud({
+  databaseUrl = process.env.DATABASE_URL,
+  sessionId,
+  Pool = pg.Pool,
+  materializeRawSamples = false
+} = {}) {
   const reproduce = sessionId
     ? `npm run ml3:inventory -- --source cloud --session ${sessionId} --output artifacts/ml3_dataset_inventory.json`
     : 'npm run ml3:inventory -- --source cloud --output artifacts/ml3_dataset_inventory.json';
@@ -363,6 +368,7 @@ export async function inventoryCloud({ databaseUrl = process.env.DATABASE_URL, s
       if (!lapsBySession.has(id)) lapsBySession.set(id, []);
       lapsBySession.get(id).push(row);
     }
+    const samplesBySession = new Map();
     const sessions = sessionRows.map(row => {
       const batchRowsForSession = batchesBySession.get(String(row.id)) ?? [];
       const samples = [];
@@ -477,6 +483,7 @@ export async function inventoryCloud({ databaseUrl = process.env.DATABASE_URL, s
         || qualitySignals.structuralIntegrity.driverTypeInvalid > 0;
       const localIds = [...new Set(samples.map(sample => sample?.metadata?.sessionId)
         .filter(value => typeof value === 'string' && value))];
+      if (materializeRawSamples) samplesBySession.set(String(row.id), samples);
       return completeSession({
         ...fromSessionRow(row),
         source: 'CLOUD_POSTGRES',
@@ -501,10 +508,11 @@ export async function inventoryCloud({ databaseUrl = process.env.DATABASE_URL, s
     }, { gzipValid: 0, gzipInvalid: 0, jsonValid: 0, jsonInvalid: 0,
       arrayValid: 0, arrayInvalid: 0, countMatch: 0, countMismatch: 0,
       firstLastMetadataMatch: 0, firstLastMetadataMismatch: 0 });
-    return { sessions, status: {
+    return { sessions, ...(materializeRawSamples ? { samplesBySession } : {}), status: {
       source: 'CLOUD_POSTGRES', status: 'AVAILABLE_FULL', sessions: sessions.length,
       batches: batchRows.length, samples: sessions.reduce((sum, item) => sum + (item.sampleCount ?? 0), 0),
       payloadIntegrity: integrityTotals,
+      rawSamplesInMemory: materializeRawSamples,
       note: 'telemetry_sessions, telemetry_batches and telemetry_laps read in one read-only repeatable-read snapshot.'
     } };
   } catch (error) {
