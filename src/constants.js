@@ -9,7 +9,7 @@ export const MAX_INTERNAL_SPEED = 1.35;
 export const GT3_TOP_SPEED = MAX_INTERNAL_SPEED * 320 / MAX_SPEED_KMH;
 export const GRAVEL_HANDLING = Object.freeze({ lowSpeedDrag: 0.985, highSpeedDrag: 0.88,
   dragBlendSpeed: 0.5, maneuverSpeed: 0.18, extraSteer: 0.35 });
-export const TRACK_WIDTH = 24;          // 24 metros de largura média FIA ampliada
+export const TRACK_WIDTH = 27;          // 27 metros de largura média FIA ampliada
 export const NUM_CHECKPOINTS = 16;       // Checkpoints para circuitos de 4 a 7 km
 export const BOT_DRIVER_MODE = {
   DETERMINISTIC: 'DETERMINISTIC', // Baseline determinístico atual (Padrão ativo e fallback permanente)
@@ -25,7 +25,7 @@ export const TELEMETRY_VERSIONS = TELEMETRY_LINEAGE_VERSIONS;
 export const FORCA_TRACAO = 0.045;
 export const RESISTENCIA_AR = 0.00105;
 // Entrega de torque mais progressiva, típica de um GT3 com controle de tração.
-export const TAXA_SUAVIZACAO_ACEL = 0.028;
+export const TAXA_SUAVIZACAO_ACEL = 0.022;
 export const TAXA_SUAVIZACAO_FREIO = 0.12;
 export const FORCA_FREIO_MAX = 0.020;
 export const GT3_WHEELBASE = 2.70;
@@ -33,12 +33,14 @@ export const GT3_BASE_GRIP = 0.047;
 export const GT3_AERO_GRIP = 0.030;
 // Eixo traseiro chega ao limite antes da frente em curvas exigentes.
 export const GT3_REAR_LATERAL_DEMAND = 0.60;
-export const GT3_REAR_SLIDE_GRIP_LOSS = 0.45;
+export const GT3_REAR_SLIDE_GRIP_LOSS = 0.35;
 export const GT3_OVERSTEER_GAIN = 0.035;
 export const GT3_YAW_RECOVERY_LOSS = 0.65;
 export const GT3_MAX_YAW_RATE = 0.10;
-export const DRIFT_CONTROL = Object.freeze({ slipWindow: 0.25, fadeAngle: 1.05,
-  fadeRange: 0.4, yawResponse: 0.16, oversteerRelief: 0.65 });
+export const REAR_SLIP_TUNING = Object.freeze({ driveOnsetMargin: 0.06, lateralOnsetMargin: 0.04,
+  progressionSoftness: 0.12, riseMin: 0.10, riseMax: 0.15, recovery: 0.09 });
+export const DRIFT_CONTROL = Object.freeze({ slipWindow: 0.22, fadeAngle: 1.05,
+  fadeRange: 0.4, yawResponse: 0.18, oversteerRelief: 0.72 });
 export const GT3_TC_SLIP_LIMIT = 0.105;
 export const GT3_ABS_SLIP_LIMIT = 0.165;
 
@@ -49,7 +51,7 @@ export const TAXA_ESTERCO_RETORNO = 0.12;
 
 // Potência e cinco primeiras relações preservadas; sexta alongada para 320 km/h.
 export const GEAR_SPEEDS = [0, 0.25, 0.46, 0.68, 0.90, 1.13, 1.72];
-export const GEAR_POWER = [0, 0.028, 0.024, 0.021, 0.018, 0.016, 0.014];
+export const GEAR_POWER = [0, 0.024, 0.021, 0.018, 0.016, 0.014, 0.012];
 
 // Pilotos Adversários da F1 / GT3 com Capacidades e Cores Reais (Grid Completo de 20 Pilotos)
 export const BOT_CONFIGS = [

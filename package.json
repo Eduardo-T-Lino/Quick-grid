@@ -15,6 +15,7 @@
     "test:online": "node scripts/test_online.js",
     "test:controls": "node scripts/test_controls.js",
     "test:boards": "node scripts/test_braking_boards.js",
+    "test:rwd:browser": "node scripts/run_rwd_browser_check.js",
     "test:online-auth": "node scripts/test_online_auth.js",
     "test:paddock:browser": "node scripts/test_paddock_browser.js",
     "test:wake": "node scripts/test_aerodynamics.js",

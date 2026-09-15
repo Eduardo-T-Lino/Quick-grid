@@ -9,7 +9,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.412 km",
     "lengthMeters": 5412,
     "elevationDiff": "18 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#d32f2f",
       "secondary": "#ffffff"
@@ -495,7 +495,7 @@ export const F1_TRACKS = [
     "lengthKm": "6.174 km",
     "lengthMeters": 6174,
     "elevationDiff": "5 m",
-    "trackWidth": 22,
+    "trackWidth": 28,
     "kerbColors": {
       "primary": "#006c35",
       "secondary": "#ffffff"
@@ -1271,7 +1271,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.278 km",
     "lengthMeters": 5278,
     "elevationDiff": "6 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#0055a5",
       "secondary": "#ffffff"
@@ -2017,7 +2017,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.807 km",
     "lengthMeters": 5807,
     "elevationDiff": "40 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#c62828",
       "secondary": "#ffffff"
@@ -2893,7 +2893,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.451 km",
     "lengthMeters": 5451,
     "elevationDiff": "12 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#d32f2f",
       "secondary": "#ffd700"
@@ -3614,7 +3614,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.412 km",
     "lengthMeters": 5412,
     "elevationDiff": "7 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#00b4d8",
       "secondary": "#ffffff"
@@ -4145,7 +4145,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.909 km",
     "lengthMeters": 4909,
     "elevationDiff": "34 m",
-    "trackWidth": 22,
+    "trackWidth": 28,
     "kerbColors": {
       "primary": "#1b5e20",
       "secondary": "#ffffff"
@@ -4581,7 +4581,7 @@ export const F1_TRACKS = [
     "lengthKm": "3.337 km",
     "lengthMeters": 3337,
     "elevationDiff": "42 m",
-    "trackWidth": 20,
+    "trackWidth": 22,
     "kerbColors": {
       "primary": "#d32f2f",
       "secondary": "#ffffff"
@@ -5397,7 +5397,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.361 km",
     "lengthMeters": 4361,
     "elevationDiff": "5 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#c62828",
       "secondary": "#ffffff"
@@ -5923,7 +5923,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.657 km",
     "lengthMeters": 4657,
     "elevationDiff": "30 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#d32f2f",
       "secondary": "#ffd700"
@@ -6689,7 +6689,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.318 km",
     "lengthMeters": 4318,
     "elevationDiff": "65 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#d32f2f",
       "secondary": "#ffffff"
@@ -7110,7 +7110,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.891 km",
     "lengthMeters": 5891,
     "elevationDiff": "12 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#1565c0",
       "secondary": "#ffffff"
@@ -7801,7 +7801,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.381 km",
     "lengthMeters": 4381,
     "elevationDiff": "38 m",
-    "trackWidth": 22,
+    "trackWidth": 28,
     "kerbColors": {
       "primary": "#c62828",
       "secondary": "#2e7d32"
@@ -8522,7 +8522,7 @@ export const F1_TRACKS = [
     "lengthKm": "7.004 km",
     "lengthMeters": 7004,
     "elevationDiff": "102 m",
-    "trackWidth": 25,
+    "trackWidth": 28,
     "kerbColors": {
       "primary": "#d32f2f",
       "secondary": "#ffd700"
@@ -9303,7 +9303,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.259 km",
     "lengthMeters": 4259,
     "elevationDiff": "15 m",
-    "trackWidth": 22,
+    "trackWidth": 28,
     "kerbColors": {
       "primary": "#e65100",
       "secondary": "#ffffff"
@@ -9914,7 +9914,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.793 km",
     "lengthMeters": 5793,
     "elevationDiff": "12 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#1b5e20",
       "secondary": "#ffffff"
@@ -10555,7 +10555,7 @@ export const F1_TRACKS = [
     "lengthKm": "6.003 km",
     "lengthMeters": 6003,
     "elevationDiff": "24 m",
-    "trackWidth": 22,
+    "trackWidth": 28,
     "kerbColors": {
       "primary": "#0092bc",
       "secondary": "#e03c31"
@@ -11001,7 +11001,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.940 km",
     "lengthMeters": 4940,
     "elevationDiff": "8 m",
-    "trackWidth": 22,
+    "trackWidth": 28,
     "kerbColors": {
       "primary": "#e53935",
       "secondary": "#ffffff"
@@ -11597,7 +11597,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.513 km",
     "lengthMeters": 5513,
     "elevationDiff": "41 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#c62828",
       "secondary": "#1565c0"
@@ -12468,7 +12468,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.304 km",
     "lengthMeters": 4304,
     "elevationDiff": "5 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#2e7d32",
       "secondary": "#ffffff"
@@ -12989,7 +12989,7 @@ export const F1_TRACKS = [
     "lengthKm": "4.309 km",
     "lengthMeters": 4309,
     "elevationDiff": "35 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#fbc02d",
       "secondary": "#2e7d32"
@@ -13860,7 +13860,7 @@ export const F1_TRACKS = [
     "lengthKm": "6.201 km",
     "lengthMeters": 6201,
     "elevationDiff": "6 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#d32f2f",
       "secondary": "#ffffff"
@@ -14376,7 +14376,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.419 km",
     "lengthMeters": 5419,
     "elevationDiff": "8 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#6a1b9a",
       "secondary": "#ffffff"
@@ -14927,7 +14927,7 @@ export const F1_TRACKS = [
     "lengthKm": "5.281 km",
     "lengthMeters": 5281,
     "elevationDiff": "10 m",
-    "trackWidth": 24,
+    "trackWidth": 27,
     "kerbColors": {
       "primary": "#00838f",
       "secondary": "#ffffff"

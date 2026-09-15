@@ -11,3 +11,7 @@ Validação: `node scripts/test_corner_traction.js`, `node scripts/test_ml22_fin
 Lineage atualizada para `0.4.0-ml2` / `1.6.0-gt3-rwd`. O baseline histórico permanece separado; sem publicação cloud nem modificação de dados históricos.
 
 Resultado local: 315 verificações do gate, 31 de lineage, 25 do inventário, 8 de controles, 9 de apresentação e 6 de tração aprovadas; build aprovado. No Chromium: 7 verificações da física real em fixture e 16 da largada normal com 19 bots aprovadas. Na fixture plana a máxima observada foi 241 km/h (estabilizando perto de 240); a sobrecarga no molhado ultrapassou 90 graus entre velocidade e orientação, enquanto a recuperação controlada terminou com derrapagem e giro próximos de zero. Os cenários não são uma homologação de desempenho/FPS nem de sensação humana.
+
+## Ajuste progressivo de traseira
+
+O runtime `0.6.4-ml2` adiciona uma margem pequena antes do crescimento de `rearSlip` e uma curva suave na transição entre aderência e deslizamento. Sobrecarga forte ou comando incorreto ainda pode produzir rodada, especialmente no molhado, mas pequenas excedências deixam de gerar torque de sobresterço abrupto. O contraesterço ganha autoridade um pouco antes e a recuperação do estado de slip é gradual, sem alinhar artificialmente a carroceria à pista.

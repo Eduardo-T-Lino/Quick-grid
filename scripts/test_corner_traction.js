@@ -13,20 +13,23 @@ assert.ok(block.includes('GT3_REAR_LATERAL_DEMAND'));
 const integrate = new Function('c', 'input', `
   const { MAX_INTERNAL_SPEED, MAX_SPEED_KMH, GT3_BASE_GRIP, GT3_AERO_GRIP,
     GT3_WHEELBASE, GT3_ABS_SLIP_LIMIT, FORCA_FREIO_MAX, GT3_REAR_LATERAL_DEMAND,
-    GT3_REAR_SLIDE_GRIP_LOSS, GT3_OVERSTEER_GAIN, GT3_YAW_RECOVERY_LOSS, GT3_MAX_YAW_RATE, WAKE_TUNING, GRAVEL_HANDLING, DRIFT_CONTROL } = c;
-  const { speed, steerInput, engineAccelFinal, throttleInput, state } = input;
+    GT3_REAR_SLIDE_GRIP_LOSS, GT3_OVERSTEER_GAIN, GT3_YAW_RECOVERY_LOSS, GT3_MAX_YAW_RATE,
+    WAKE_TUNING, GRAVEL_HANDLING, REAR_SLIP_TUNING, DRIFT_CONTROL } = c;
+  const { speed, steerInput, engineAccelFinal, throttleInput, brakeInput = 0, state } = input;
   const headingX = Math.cos(this.angle), headingY = Math.sin(this.angle), rightX = -headingY, rightY = headingX;
   const wake = this.wakeIntensity || 0;
   ${block}
-  return { rearLongLimit, rearLateralUse, driveAccel, brakeAccel, lateralCapacity,
+  return { rearGrip, rearDemandRatio, rearLongLimit, rearLateralUse, driveAccel, brakeAccel, lateralCapacity,
+    excessDrive, targetRearSlip, progressiveSlipDemand,
     yawRate: this.yawRate, rearSlip: this.rearSlip, vx: this.vx, vy: this.vy,
     tcActive: this.tcActive, absActive: this.absActive, rearGripRetention };
 `);
-function run(demand, steerInput, speed = 0.9, wet = false, throttleInput = 1) {
-  return integrate.call({ vx: speed, vy: 0, angle: 0, yawRate: 0, rearSlip: 0,
+function run(demand, steerInput, speed = 0.9, wet = false, throttleInput = 1, overrides = {}) {
+  return integrate.call({ vx: speed, vy: 0, angle: 0, yawRate: 0, rearSlip: overrides.rearSlip ?? 0,
     tyreTemp: wet ? 62 : 92, tyreWear: 0, currentSurface: 'TARMAC', brakePressure: 0 },
   { ...constants, WAKE_TUNING, GT3_REAR_LATERAL_DEMAND: demand },
-  { speed, steerInput, engineAccelFinal: 0.014 * throttleInput, throttleInput,
+  { speed, steerInput, engineAccelFinal: overrides.engineAccelFinal ?? 0.014 * throttleInput, throttleInput,
+    brakeInput: 0,
     state: { trackCondition: wet ? 'wet' : 'dry' } });
 }
 let passed = 0;
@@ -54,6 +57,24 @@ test('cornering reduces traction margin and reaches slip sooner', () => {
   }
   assert.ok(earlier > 0, 'must actually cross the traction limit earlier, not just change a display flag');
 });
+test('rear slip has a softer onset than the previous linear response', () => {
+  let reduced = 0, slidingCases = 0;
+  for (const wet of [false, true]) for (let i = 1; i <= 100; i++) {
+    const result = run(current, i / 100, 0.9, wet);
+    const previousTarget = Math.min(1.5, result.excessDrive / Math.max(result.rearGrip, 0.001)
+      + Math.max(0, result.rearDemandRatio - 1) * 0.65);
+    const previousFirstTick = previousTarget * 0.16;
+    assert.ok(result.rearSlip <= previousFirstTick + 1e-12);
+    if (result.rearSlip > 0) slidingCases++;
+    if (result.rearSlip + 1e-6 < previousFirstTick) reduced++;
+  }
+  assert.ok(slidingCases > 0 && reduced > 0, 'large overload must still slide while onset is softened');
+});
+test('rear slip recovery is faster but remains progressive', () => {
+  const recovered = run(current, 0, 0.9, false, 0, { rearSlip: 0.7, engineAccelFinal: 0 });
+  assert.ok(recovered.rearSlip > 0.5 && recovered.rearSlip < 0.7);
+  assert.ok(recovered.rearSlip < 0.7 * (1 - 0.07));
+});
 test('left and right turns remain symmetric', () => {
   for (const wet of [false, true]) {
     const left = run(current, -0.6, 0.9, wet), right = run(current, 0.6, 0.9, wet);
@@ -63,15 +84,19 @@ test('left and right turns remain symmetric', () => {
   }
 });
 test('no throttle produces no new powered oversteer', () => {
-  for (const wet of [false, true]) assert.deepEqual(run(current, 0.4, 0.9, wet, 0),
-    { ...run(0.48, 0.4, 0.9, wet, 0),
-      rearLongLimit: run(current, 0.4, 0.9, wet, 0).rearLongLimit,
-      rearLateralUse: run(current, 0.4, 0.9, wet, 0).rearLateralUse });
+  for (const wet of [false, true]) {
+    const tuned = run(current, 0.4, 0.9, wet, 0);
+    const reference = run(0.48, 0.4, 0.9, wet, 0);
+    assert.equal(tuned.driveAccel, 0);
+    assert.equal(tuned.excessDrive, 0);
+    assert.equal(tuned.rearSlip, 0);
+    assert.equal(tuned.yawRate, reference.yawRate);
+  }
 });
-test('all six gears restore original force without removing RWD tuning', () => {
-  const oldPower = [0, 0.028, 0.024, 0.021, 0.018, 0.016, 0.014];
+test('all six gears use the progressive force map without removing RWD tuning', () => {
+  const progressivePower = [0, 0.024, 0.021, 0.018, 0.016, 0.014, 0.012];
   for (let gear = 1; gear <= 6; gear++) {
-    assert.equal(constants.GEAR_POWER[gear], oldPower[gear]);
+    assert.equal(constants.GEAR_POWER[gear], progressivePower[gear]);
     assert.ok(constants.GEAR_SPEEDS[gear] > constants.GEAR_SPEEDS[gear - 1]);
   }
   assert.ok(constants.GEAR_SPEEDS[6] >= constants.GT3_TOP_SPEED);

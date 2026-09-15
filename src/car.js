@@ -7,7 +7,8 @@ import {
   TAXA_SUAVIZACAO_FREIO, FORCA_FREIO_MAX,
   GEAR_SPEEDS, GEAR_POWER, GT3_WHEELBASE, GT3_BASE_GRIP, GT3_AERO_GRIP,
   GT3_TC_SLIP_LIMIT, GT3_ABS_SLIP_LIMIT, GT3_REAR_LATERAL_DEMAND,
-  GT3_TOP_SPEED, GT3_REAR_SLIDE_GRIP_LOSS, GT3_OVERSTEER_GAIN, GT3_YAW_RECOVERY_LOSS, GT3_MAX_YAW_RATE, GRAVEL_HANDLING, DRIFT_CONTROL
+  GT3_TOP_SPEED, GT3_REAR_SLIDE_GRIP_LOSS, GT3_OVERSTEER_GAIN, GT3_YAW_RECOVERY_LOSS, GT3_MAX_YAW_RATE,
+  GRAVEL_HANDLING, REAR_SLIP_TUNING, DRIFT_CONTROL
 } from './constants.js';
 import { Particle, SparkParticle } from './particles.js';
 import { state } from './game.js';
@@ -396,10 +397,23 @@ export class Car {
     this.tcActive = driveRequest > rearLongLimit && throttleInput > 0.25;
     let driveAccel = Math.min(driveRequest, rearLongLimit * (this.tcActive ? 1.03 : 1));
     let excessDrive = Math.max(0, driveRequest - rearLongLimit);
-    const targetRearSlip = Math.min(1.5, excessDrive / Math.max(rearGrip, 0.001)
-      + Math.max(0, rearDemandRatio - 1) * 0.65);
-    this.rearSlip += (targetRearSlip - this.rearSlip) * (targetRearSlip > this.rearSlip ? 0.16 : 0.07);
-    const sliding = Math.min(1, this.rearSlip);
+    // Uma pequena margem e a curva quadrática evitam a transição binária grip/rodada.
+    // A sobrecarga grande ainda vence o pneu; perto do limite há tempo para modular e contraesterçar.
+    const driveSlipDemand = Math.max(0,
+      excessDrive / Math.max(rearGrip, 0.001) - REAR_SLIP_TUNING.driveOnsetMargin);
+    const lateralSlipDemand = Math.max(0,
+      rearDemandRatio - 1 - REAR_SLIP_TUNING.lateralOnsetMargin) * 0.65;
+    const combinedSlipDemand = driveSlipDemand + lateralSlipDemand;
+    const progressiveSlipDemand = combinedSlipDemand ** 2
+      / (combinedSlipDemand + REAR_SLIP_TUNING.progressionSoftness);
+    const targetRearSlip = Math.min(1.5, progressiveSlipDemand);
+    const riseBlend = Math.min(1, targetRearSlip);
+    const slipRise = REAR_SLIP_TUNING.riseMin
+      + (REAR_SLIP_TUNING.riseMax - REAR_SLIP_TUNING.riseMin) * riseBlend;
+    this.rearSlip += (targetRearSlip - this.rearSlip)
+      * (targetRearSlip > this.rearSlip ? slipRise : REAR_SLIP_TUNING.recovery);
+    const clampedRearSlip = Math.min(1, this.rearSlip);
+    const sliding = clampedRearSlip * clampedRearSlip * (3 - 2 * clampedRearSlip);
     const rearGripRetention = 1 - sliding * GT3_REAR_SLIDE_GRIP_LOSS;
     driveAccel *= rearGripRetention;
 
@@ -414,10 +428,11 @@ export class Car {
 
     // S brakes to a stop before requesting reverse. Drag opposes signed motion.
     const reverseLimit = MAX_INTERNAL_SPEED * 50 / MAX_SPEED_KMH;
-    const reversing = !this.isBot && this.lastBrakeInput > 0 && throttleInput === 0 && fwdVel <= 0;
+    const reversing = !this.isBot && brakeInput > 0 && throttleInput === 0 && fwdVel <= 0;
     const signedBrake = reversing
-      ? -Math.min(brakeAccel * 0.35, rearLongLimit, Math.max(0, reverseLimit + fwdVel))
+      ? -Math.min(brakeAccel * 0.55, rearLongLimit, Math.max(0, reverseLimit + fwdVel))
       : -Math.sign(fwdVel) * Math.min(brakeAccel, Math.abs(fwdVel));
+
     let longitudinalDelta = driveAccel + signedBrake - Math.max(0, -engineAccelFinal);
     // A hard safety bound only on reverse; retain sideways slide and forward momentum.
     longitudinalDelta = Math.max(longitudinalDelta, -reverseLimit - fwdVel);

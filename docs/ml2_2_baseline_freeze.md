@@ -108,3 +108,13 @@ frear ou sair do asfalto cancela esse benefício. Contraesterço recupera autori
 do eixo dianteiro durante uma traseirada, sem alinhar o carro automaticamente.
 Geometria, dificuldade de entrada em derrapagem, schema/features e baseline histórico
 preservados. Sem módulo online, treino ou ML3 nesta revisão.
+
+## Revisão local: tração traseira progressiva
+
+Build `0.6.4-ml2`, física `1.8.4-gt3-progressive-rear-grip`, geometria
+`1.5.1-wider-corners`; fingerprint
+`e11e108569a91069bf93fa0cea3b43c7fef019a1bb89541bdd7abc6578711819`.
+A entrada em slip recebe margem e progressão suave, enquanto contraesterço e retirada
+de carga recuperam aderência sem snap. Potência por marcha, aceleração, ré e larguras
+de pista refletem as mudanças de gameplay presentes no mesmo runtime. Schema/features
+e o baseline histórico aceito permanecem inalterados.

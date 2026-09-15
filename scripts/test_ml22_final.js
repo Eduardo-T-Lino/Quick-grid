@@ -6,7 +6,8 @@ import {
   FORCA_FREIO_MAX, GT3_WHEELBASE, GT3_BASE_GRIP, GT3_AERO_GRIP,
   GT3_TC_SLIP_LIMIT, GT3_ABS_SLIP_LIMIT, GT3_REAR_LATERAL_DEMAND, GEAR_SPEEDS, GEAR_POWER,
   GT3_TOP_SPEED, GT3_REAR_SLIDE_GRIP_LOSS, GT3_OVERSTEER_GAIN, GT3_YAW_RECOVERY_LOSS, GT3_MAX_YAW_RATE,
-  MAX_SPEED_KMH, MAX_INTERNAL_SPEED, TRACK_WIDTH, TELEMETRY_VERSIONS, GRAVEL_HANDLING, DRIFT_CONTROL
+  MAX_SPEED_KMH, MAX_INTERNAL_SPEED, TRACK_WIDTH, TELEMETRY_VERSIONS, GRAVEL_HANDLING,
+  REAR_SLIP_TUNING, DRIFT_CONTROL
 } from '../src/constants.js';
 import { playerSteering } from '../src/raceSettings.js';
 import { WAKE_TUNING } from '../src/aerodynamics.js';
@@ -48,10 +49,11 @@ check(TELEMETRY_VERSIONS === TELEMETRY_LINEAGE_VERSIONS, 'frontend versions use 
 check(config.VERSIONS === TELEMETRY_LINEAGE_VERSIONS, 'backend versions use the canonical source');
 check(SCHEMA_VERSION === TELEMETRY_LINEAGE_VERSIONS.SCHEMA_VERSION, 'sample schema uses the canonical source');
 check(TELEMETRY_LINEAGE_VERSIONS.SCHEMA_VERSION === 2, 'final schema is causal V2');
-check(TELEMETRY_LINEAGE_VERSIONS.GAME_BUILD_VERSION === '0.6.3-ml2', 'game build identifies compact instruments and stacked RPM/boost');
-check(TELEMETRY_LINEAGE_VERSIONS.PHYSICS_VERSION === '1.8.3-gt3-drift-coast', 'physics lineage distinguishes countersteer recovery and boost momentum');
-check(TELEMETRY_LINEAGE_VERSIONS.TRACK_GEOMETRY_VERSION === '1.5.0-centripetal',
-  'track geometry lineage remains 1.5.0-centripetal');
+check(TELEMETRY_LINEAGE_VERSIONS.GAME_BUILD_VERSION === '0.6.4-ml2', 'game build identifies progressive rear traction');
+check(TELEMETRY_LINEAGE_VERSIONS.PHYSICS_VERSION === '1.8.4-gt3-progressive-rear-grip',
+  'physics lineage distinguishes progressive rear-slip onset and recovery');
+check(TELEMETRY_LINEAGE_VERSIONS.TRACK_GEOMETRY_VERSION === '1.5.1-wider-corners',
+  'track geometry lineage records the wider track profiles');
 check(TELEMETRY_LINEAGE_VERSIONS.FEATURE_MANIFEST_VERSION === '2.1.0', 'feature manifest remains 2.1.0');
 check(BASELINE_MANIFEST.rates.sampleRateHz === 10, 'telemetry baseline is 10 Hz');
 check(BASELINE_MANIFEST.rates.simulationHz === 60 && /PHYSICS_STEP_MS\s*=\s*1000\s*\/\s*60/.test(gameSource),
@@ -61,6 +63,14 @@ const p = BASELINE_MANIFEST.physicsConstants;
 check(stableSerialize(WAKE_TUNING) === stableSerialize(p.wake), 'wake tuning matches the fingerprint');
 check(stableSerialize(BOOST_TUNING) === stableSerialize(p.boost), 'boost tuning matches the fingerprint');
 check(stableSerialize(DRIFT_CONTROL) === stableSerialize(p.driftControl), 'drift recovery tuning matches the fingerprint');
+check(stableSerialize(REAR_SLIP_TUNING) === stableSerialize({
+  driveOnsetMargin: p.rearSlip.driveOnsetMargin,
+  lateralOnsetMargin: p.rearSlip.lateralOnsetMargin,
+  progressionSoftness: p.rearSlip.progressionSoftness,
+  riseMin: p.rearSlip.riseMin,
+  riseMax: p.rearSlip.riseMax,
+  recovery: p.rearSlip.recovery
+}), 'progressive rear-slip tuning matches the fingerprint');
 check(stableSerialize(GRAVEL_HANDLING) === stableSerialize(p.gravelHandling), 'gravel tuning matches the fingerprint');
 check(GT3_REAR_LATERAL_DEMAND === p.rearLateralDemand, 'rear lateral demand matches the fingerprint');
 check(equalArray([GT3_TOP_SPEED, GT3_REAR_SLIDE_GRIP_LOSS, GT3_OVERSTEER_GAIN, GT3_YAW_RECOVERY_LOSS, GT3_MAX_YAW_RATE],
