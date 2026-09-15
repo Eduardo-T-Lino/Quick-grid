@@ -62,7 +62,7 @@ export function reconcileCloudEvidence({ frozenSession, cloudSession, cloudStatu
   compare(mismatches, 'samplesBySession.length', numeric(frozenSession.sampleCount),
     Array.isArray(samples) ? samples.length : null);
   compare(mismatches, 'cloudSession.rawPayloadAvailable', true, cloudSession.rawPayloadAvailable === true);
-  compare(mismatches, 'cloudSession.payloadCorrupt', false, cloudSession.payloadCorrupt ?? null);
+  compare(mismatches, 'cloudSession.payloadCorrupt', false, cloudSession.payloadCorrupt === true);
 
   const integrity = cloudStatus?.payloadIntegrity ?? {};
   for (const field of ['gzipInvalid', 'jsonInvalid', 'arrayInvalid', 'countMismatch', 'firstLastMetadataMismatch'])

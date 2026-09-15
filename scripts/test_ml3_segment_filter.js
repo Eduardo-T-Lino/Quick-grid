@@ -295,7 +295,29 @@ const rawReconciliation = reconcileCloudEvidence({
   samples: cleanSamples
 });
 check(rawReconciliation.mismatchCount === 0,
-  'raw UUID metadata, counts and payload integrity reconcile exactly with the frozen session');
+  'an explicit false payloadCorrupt reconciles as non-corrupt evidence');
+
+const { payloadCorrupt: omittedPayloadCorrupt, ...cloudEvidenceWithoutPayloadCorrupt } = cloudEvidenceSession;
+const omittedPayloadCorruptReconciliation = reconcileCloudEvidence({
+  frozenSession: frozenEvidenceSession,
+  cloudSession: cloudEvidenceWithoutPayloadCorrupt,
+  cloudStatus: cloudEvidenceStatus,
+  samples: cleanSamples
+});
+check(omittedPayloadCorrupt === false
+  && !Object.hasOwn(cloudEvidenceWithoutPayloadCorrupt, 'payloadCorrupt')
+  && omittedPayloadCorruptReconciliation.mismatchCount === 0,
+  'an omitted payloadCorrupt field reconciles as non-corrupt evidence');
+
+const corruptPayloadReconciliation = reconcileCloudEvidence({
+  frozenSession: frozenEvidenceSession,
+  cloudSession: { ...cloudEvidenceSession, payloadCorrupt: true },
+  cloudStatus: cloudEvidenceStatus,
+  samples: cleanSamples
+});
+check(corruptPayloadReconciliation.mismatchCount === 1
+  && corruptPayloadReconciliation.mismatchCodes.includes('FREEZE_MISMATCH:cloudSession.payloadCorrupt'),
+  'an explicit true payloadCorrupt field produces a freeze mismatch');
 
 const filterEnvelope = {
   filterVersion: ML3_SEGMENT_FILTER_VERSION,
