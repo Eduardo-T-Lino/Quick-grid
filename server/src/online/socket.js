@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { RoomHub } from './rooms.js';
 
-export function attachOnline(server, { production = false, allowedOrigins = [], hub = new RoomHub() } = {}) {
+export function attachOnline(server, { production = false, allowedOrigins = [], hub = new RoomHub(), onlineAccess } = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 2048, perMessageDeflate: false });
   const counts = new Map();
   const onUpgrade = (req, socket, head) => {
@@ -19,7 +19,7 @@ export function attachOnline(server, { production = false, allowedOrigins = [], 
     }
     wss.handleUpgrade(req, socket, head, ws => {
       counts.set(ip, (counts.get(ip) || 0) + 1);
-      let player, messages = 0, actions = 0, windowStart = performance.now();
+      let player, identity, authenticating = false, messages = 0, actions = 0, windowStart = performance.now();
       const send = data => {
         if (ws.readyState !== WebSocket.OPEN) return;
         if (ws.bufferedAmount > 256 * 1024) { ws.terminate(); return; }
@@ -29,7 +29,15 @@ export function attachOnline(server, { production = false, allowedOrigins = [], 
       const handshake = setTimeout(() => { if (!player) ws.close(1008, 'Handshake timeout'); }, 5000);
       ws.alive = true;
       ws.on('pong', () => { ws.alive = true; });
-      ws.on('message', (bytes, binary) => {
+      ws.checkAccount = async () => {
+        if (!player || authenticating) return;
+        authenticating = true;
+        try {
+          if (!await onlineAccess.validate(identity)) { hub.leave(player); send({ type: 'error', code: 'AUTH_REQUIRED' }); ws.close(1008, 'Account required'); }
+        } catch { hub.leave(player); ws.close(1011, 'Account unavailable'); }
+        finally { authenticating = false; }
+      };
+      ws.on('message', async (bytes, binary) => {
         const now = performance.now();
         if (now - windowStart >= 1000) { messages = 0; actions = 0; windowStart = now; }
         if (binary || ++messages > 60) { ws.close(1008, 'Rate limit'); return; }
@@ -37,14 +45,24 @@ export function attachOnline(server, { production = false, allowedOrigins = [], 
           const data = JSON.parse(bytes.toString());
           if (!data || typeof data !== 'object' || Array.isArray(data)) throw Error('INVALID_REQUEST');
           if (!['input', 'ping'].includes(data.type) && ++actions > 10) { ws.close(1008, 'Rate limit'); return; }
-          if (!player) { player = hub.attach(send, data); clearTimeout(handshake); }
+          if (!player) {
+            if (authenticating) return;
+            authenticating = true;
+            try {
+              if (!onlineAccess) throw Error('AUTH_REQUIRED');
+              identity = await onlineAccess.consume(data.ticket, req.headers.origin);
+              if (ws.readyState !== WebSocket.OPEN) return;
+              player = hub.attach(send, data, identity); clearTimeout(handshake);
+            } finally { authenticating = false; }
+          }
           else if (data.type === 'leave') { hub.leave(player); ws.close(1000, 'Left room'); }
           else hub.command(player, data);
         } catch (error) {
-          const codes = ['VERSION_MISMATCH', 'SESSION_EXPIRED', 'INVALID_REQUEST', 'SERVER_FULL', 'INVALID_SETTINGS',
+          const codes = ['AUTH_REQUIRED', 'ACCOUNT_IN_ROOM', 'VERSION_MISMATCH', 'SESSION_EXPIRED', 'INVALID_REQUEST', 'SERVER_FULL', 'INVALID_SETTINGS',
             'INVALID_CODE', 'ROOM_NOT_FOUND', 'RACE_IN_PROGRESS', 'ROOM_FULL', 'INVALID_INPUT', 'INVALID_VOTE',
             'HOST_ONLY', 'NOT_READY', 'NEED_PLAYERS', 'INVALID_PHASE'];
           send({ type: 'error', code: codes.includes(error.message) ? error.message : 'INVALID_REQUEST' });
+          if (error.message === 'AUTH_REQUIRED') ws.close(1008, 'Account required');
         }
       });
       ws.on('error', () => {});
@@ -68,6 +86,7 @@ export function attachOnline(server, { production = false, allowedOrigins = [], 
     for (const ws of wss.clients) {
       if (!ws.alive) { ws.terminate(); continue; }
       ws.alive = false; ws.ping();
+      void ws.checkAccount();
     }
   }, 10000);
   tick.unref(); heartbeat.unref();

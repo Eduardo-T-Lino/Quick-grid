@@ -7,4 +7,4 @@ export const CAR_FIELDS = ['x', 'y', 'z', 'angle', 'vx', 'vy', 'yawRate', 'gear'
   'wakeIntensity', 'rearSlip', 'tcActive', 'absActive', 'currentSurface', 'currentLap', 'currentLapTime',
   'totalRaceTime', 'finished', 'rank', 'progress', 'isAuto'];
 export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4];
-export const validPilot = value => typeof value === 'string' && /^[\p{L}\p{N} ._'’-]{2,24}$/u.test(value.trim());
+export const validPilot = value => typeof value === 'string' && /^[\p{L}\p{N} ._'’-]{2,32}$/u.test(value.trim());

@@ -1,6 +1,6 @@
 # Contas de pilotos
 
-Cadastro opcional com nome de usuário (3–24 letras ASCII, números ou `_`, único sem distinguir maiúsculas), nome de piloto (2–32 caracteres) e senha (6–128 caracteres). Entrar, criar conta e sair ficam no botão do cabeçalho. Continuar sem conta mantém o jogo disponível. O nome do piloto é usado na próxima corrida; recordes permanecem no navegador, sem migração para a conta. Não há e-mail, recuperação de senha, ranking online, papéis administrativos nem vinculação à telemetria nesta entrega.
+Cadastro com nome de usuário (3–24 letras ASCII, números ou `_`, único sem distinguir maiúsculas), nome de piloto (2–32 caracteres) e senha (6–128 caracteres). Entrar, criar conta e sair ficam no botão do cabeçalho. Continuar sem conta mantém o **offline** disponível; **online exige conta**, inclusive para reconectar. O nome do piloto na sala é obtido da sessão pelo servidor. Recordes permanecem no navegador, sem migração para a conta. Não há e-mail, recuperação de senha, ranking online, papéis administrativos nem vinculação à telemetria nesta entrega.
 
 ## Segurança e armazenamento
 

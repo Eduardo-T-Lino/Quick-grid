@@ -30,7 +30,7 @@ async function startServer() {
     console.log(`   - Ingestion API: http://localhost:${config.PORT}/api/v1/telemetry/sessions\n`);
   });
 
-  const online = attachOnline(server, { production: config.isProduction, allowedOrigins: config.CORS_ALLOWED_ORIGINS });
+  const online = attachOnline(server, { production: config.isProduction, allowedOrigins: config.CORS_ALLOWED_ORIGINS, onlineAccess: app.locals.onlineAccess });
 
   // 4. Graceful Shutdown
   const shutdown = async (signal) => {

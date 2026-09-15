@@ -43,7 +43,9 @@ export function createApp() {
   app.use(express.json({ limit: config.MAX_BODY_SIZE }));
 
   // Optional player accounts are separate from anonymous telemetry.
-  app.use('/api/v1/auth', createAuthRouter());
+  const auth = createAuthRouter();
+  app.locals.onlineAccess = auth.onlineAccess;
+  app.use('/api/v1/auth', auth);
 
   // 3. Rotas de Health & Monitoramento
   app.use(healthRouter);

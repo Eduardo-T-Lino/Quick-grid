@@ -3,6 +3,7 @@ import { state, startGame, backToMenu } from '../game.js';
 import { SnapshotBuffer } from './snapshotBuffer.js';
 import { raceStart } from '../raceStart.js';
 import { mlTelemetry } from '../ml/telemetry/index.js';
+import { getOnlineTicket } from '../auth.js';
 
 // Server-authoritative client: no positions, times, points or lap counts are sent.
 export class OnlineClient extends EventTarget {
@@ -12,7 +13,16 @@ export class OnlineClient extends EventTarget {
     this.stopped = false; this.request = request; this.retryStarted = null;
     this.open();
   }
-  open() {
+  async open() {
+    const attempt = this.attempt = (this.attempt || 0) + 1;
+    let ticket;
+    this.event('status', 'Verificando sua conta…');
+    try { ticket = await getOnlineTicket(); }
+    catch (error) {
+      if (this.stopped || attempt !== this.attempt) return;
+      this.leave(); this.event('error', error.message === 'AUTH_REQUIRED' ? 'AUTH_REQUIRED' : 'DISCONNECTED'); return;
+    }
+    if (this.stopped || attempt !== this.attempt) return;
     const configured = import.meta.env?.VITE_ONLINE_URL;
     const url = configured || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/online`;
     this.event('status', 'Conectando…');
@@ -22,7 +32,8 @@ export class OnlineClient extends EventTarget {
     const connectTimeout = setTimeout(() => { if (socket.readyState === WebSocket.CONNECTING) socket.close(); }, 8000);
     socket.addEventListener('open', () => {
       clearTimeout(connectTimeout);
-      this.send({ ...(this.token ? { type: 'resume', token: this.token } : this.request), version: ONLINE_VERSION });
+      this.send({ ...(this.token ? { type: 'resume', token: this.token } : this.request), version: ONLINE_VERSION, ticket });
+      ticket = null;
     });
     socket.addEventListener('message', event => {
       if (socket !== this.socket) return;
@@ -39,7 +50,7 @@ export class OnlineClient extends EventTarget {
       }
       else if (message.type === 'error') {
         this.event('error', message.code);
-        if (['VERSION_MISMATCH', 'SESSION_EXPIRED', 'ROOM_EXPIRED'].includes(message.code) || !this.token) this.leave();
+        if (['AUTH_REQUIRED', 'ACCOUNT_IN_ROOM', 'VERSION_MISMATCH', 'SESSION_EXPIRED', 'ROOM_EXPIRED'].includes(message.code) || !this.token) this.leave();
       } else if (message.type === 'pong') this.event('ping', Math.max(0, Math.round(performance.now() - message.at)));
     });
     socket.addEventListener('close', () => {
@@ -56,7 +67,7 @@ export class OnlineClient extends EventTarget {
     clearInterval(this.pump);
     this.pump = setInterval(() => {
       if (!this.token) return;
-      const now = performance.now(), blocked = document.hidden || Boolean(document.querySelector('dialog[open]'));
+      const now = performance.now(), blocked = document.hidden || state.onlineSession?.menuOpen || Boolean(document.querySelector('dialog[open]'));
       const keys = Object.fromEntries(INPUT_KEYS.map(k => [k, !blocked && Boolean(state.keys[k])]));
       const signature = INPUT_KEYS.map(k => Number(keys[k])).join(''), shift = blocked ? 0 : (this.shift || 0);
       if (blocked) this.shift = 0;
@@ -85,13 +96,17 @@ export class OnlineClient extends EventTarget {
     this.raceId = room.raceId; this.pendingSnapshot = null; this.snapshots.reset();
     if (state.isRunning) { this.transitioning = true; backToMenu(); this.transitioning = false; }
     mlTelemetry.stop();
-    const session = { id: this.id, players: room.players, menu: () => this.event('menu'),
+    const session = { id: this.id, players: room.players, menuOpen: false, menu: () => this.event('menu'),
       queueShift: value => { this.shift = value; },
       frame: now => this.frame(now), samplePose: (car, now) => this.snapshots.sample(car, now),
       diagnostics: () => this.snapshots.diagnostics(performance.now()) };
     try {
       await startGame({ onlineSession: session, gameMode: 'online', transMode: 'auto', trackCondition: room.settings.weather,
         trackSelect: room.trackId, lapCount: room.settings.laps, botDifficulty: 'pro', botCount: 0 });
+      if (this.stopped || this.raceId !== room.raceId) {
+        if (state.onlineSession === session) { this.transitioning = true; backToMenu(); this.transitioning = false; }
+        return;
+      }
       this.send({ type: 'loaded', raceId: room.raceId }); this.event('racing');
     } catch { this.event('error', 'LOAD_FAILED'); this.leave(); }
   }

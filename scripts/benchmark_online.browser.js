@@ -1,7 +1,8 @@
-// Local real-server smoke/load sample: one rendered client + seven protocol guests.
-// No cloud, accounts or telemetry. Not an eight-browser/WAN capacity benchmark.
+// Local real-server sample: one logged-in rendered client + seven account-bound tickets.
+// Runner supplies distinct local test accounts. Not an eight-browser/WAN benchmark.
 (async () => {
   if (!['localhost', '127.0.0.1'].includes(location.hostname)) throw Error('LOCAL_ONLY');
+  if (!Array.isArray(window.__benchmarkTickets) || window.__benchmarkTickets.length !== 7) throw Error('Run node scripts/run_online_browser_checks.js for authenticated fixtures');
   const url = path => performance.getEntriesByType('resource').find(e => new URL(e.name).pathname === path)?.name || path;
   const { state } = await import(url('/src/game.js'));
   const { renderPoses } = await import(url('/src/renderPose.js'));
@@ -20,12 +21,13 @@
     await wait(() => !el('online-room').hidden);
     for (let i = 0; i < 7; i++) {
       const ws = new OriginalSocket(`ws://${location.host}/online`); peers.push(ws);
-      ws.addEventListener('open', () => ws.send(JSON.stringify({ type: 'join', version: ONLINE_VERSION, name: `Load Guest ${i}`, auto: true, code: el('online-room-code').textContent })));
+      const ticket = window.__benchmarkTickets.shift();
+      ws.addEventListener('open', () => ws.send(JSON.stringify({ type: 'join', version: ONLINE_VERSION, ticket, auto: true, code: el('online-room-code').textContent })));
       ws.addEventListener('message', e => { const m = JSON.parse(e.data); if (m.type === 'welcome') ws.send(JSON.stringify({ type: 'ready', ready: true })); if (m.type === 'room' && m.room.phase === 'loading') ws.send(JSON.stringify({ type: 'loaded', raceId: m.room.raceId })); });
     }
     await wait(() => el('online-players').children.length === 8 && [...el('online-players').children].slice(1).every(n => n.textContent.includes('pronto')));
     el('online-ready').click(); await new Promise(r => setTimeout(r, 80)); el('online-start').click();
-    await wait(() => state.racePhase === 'racing'); el('online-dialog').close(); el('gameCanvas').focus();
+    await wait(() => state.racePhase === 'racing'); el('online-return').click(); el('gameCanvas').focus();
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', bubbles: true }));
     let seq = 0; timer = setInterval(() => { for (const ws of peers) if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'input', seq: ++seq, shift: 0, keys: { KeyW: true, KeyS: false, KeyA: false, KeyD: false, Space: false } })); }, 50);
     sampling = true;
@@ -39,5 +41,5 @@
     const percentile = (a, q) => [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(a.length * q))];
     return { clients: 8, renderedClients: 1, durationSeconds: 10, frames: frames.length, frameP95Ms: percentile(frames, .95), framesOver50Ms: frames.filter(t => t > 50).length,
       snapshotGapP95Ms: percentile(gaps, .95), motionSamples: motion.length, stalledMotionFrames: motion.filter(r => r < .05).length, motionRatioP05: percentile(motion, .05), motionRatioP95: percentile(motion, .95), diagnostics: state.onlineSession.diagnostics?.() };
-  } finally { sampling = false; clearInterval(timer); window.WebSocket = OriginalSocket; state.keys = {}; for (const ws of peers) ws.close(); el('online-leave').click(); el('online-dialog').close(); }
+  } finally { sampling = false; clearInterval(timer); window.WebSocket = OriginalSocket; state.keys = {}; for (const ws of peers) { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'leave' })); ws.close(); } el('online-leave').click(); el('online-close').click(); delete window.__benchmarkTickets; }
 })()
