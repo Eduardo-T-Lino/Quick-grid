@@ -13,7 +13,7 @@ import {
   QUALITY_ELIGIBILITY
 } from './ml3/inventoryCore.js';
 import { CLOUD_QUERIES, fetchPublicSessionMetadata, inventoryCloud } from './ml3/inventorySources.js';
-import { createInventory, parseArgs } from './ml3_inventory.js';
+import { createInventory, parseArgs, validateCloudInventoryArtifact } from './ml3_inventory.js';
 import { SIMULATION_FINGERPRINT_SHA256, TELEMETRY_LINEAGE_VERSIONS } from '../src/ml/lineage/acceptedBaseline.js';
 import { TELEMETRY_LINEAGE_VERSIONS as RUNTIME_VERSIONS, SIMULATION_FINGERPRINT_SHA256 as RUNTIME_FINGERPRINT } from '../src/ml/lineage/baselineManifest.js';
 
@@ -74,6 +74,12 @@ async function main() {
     check(infrastructure.lineageEligibility === LINEAGE_ELIGIBILITY.INFRASTRUCTURE_ONLY
       && infrastructure.qualityEligibility === QUALITY_ELIGIBILITY.NOT_EVALUATED,
     'known benchmark session is infrastructure-only');
+
+    const quickValidation = compatible({ sessionId: 'a7ccea2d-c83b-4abb-b0db-188d20d4e439', collectionKind: 'UNKNOWN' });
+    check(quickValidation.knownGroup === 'QUICK_BENCHMARK_C_VALIDATION'
+      && quickValidation.collectionKind === 'AUTOMATIC'
+      && quickValidation.lineageEligibility === LINEAGE_ELIGIBILITY.VALIDATION_ONLY,
+    'known quick benchmark remains automatic validation even without a local artifact');
 
     const human = compatible({ sessionId: 'ad759118-4386-481f-9d34-f3d496eb1854',
       gameBuildVersion: '0.2.0-ml2', simulationFingerprint: null, qualitySignals: null });
@@ -294,9 +300,45 @@ async function main() {
     check(publicResult.sessions[0].sampleCount === 1940 && publicResult.status.status === 'AVAILABLE_PARTIAL',
       'public read-only metadata enrichment is explicitly partial');
 
-    const parsed = parseArgs(['--source', 'local', '--session', 'fixture', '--output', 'out.json', '--no-public-api']);
-    check(parsed.source === 'local' && parsed.session === 'fixture' && parsed.output === 'out.json' && !parsed.publicApi,
-      'CLI accepts source, session, output and offline metadata options');
+    const parsed = parseArgs(['--source', 'local', '--session', 'fixture', '--output', 'out.json',
+      '--cloud-artifact', 'cloud.json', '--no-public-api']);
+    check(parsed.source === 'local' && parsed.session === 'fixture' && parsed.output === 'out.json'
+      && parsed.cloudArtifact === 'cloud.json' && !parsed.publicApi,
+    'CLI accepts source, session, output, verified cloud artifact and offline metadata options');
+
+    const artifactQuality = analyzeSamples([sample(0), sample(1)]);
+    artifactQuality.payloadIntegrity = { batchesTotal: 1, gzipValid: 1, gzipInvalid: 0,
+      jsonValid: 1, jsonInvalid: 0, arrayValid: 1, arrayInvalid: 0, countMatch: 1, countMismatch: 0,
+      firstLastMetadataMatch: 1, firstLastMetadataMismatch: 0 };
+    artifactQuality.batchIntegrity = { sequenceMin: 0, sequenceMax: 0, sequenceGaps: 0, sequenceDuplicates: 0, batches: [] };
+    const artifactFixture = buildInventory({ sessions: [compatible({
+      source: 'CLOUD_POSTGRES', sessionId: 'ad759118-4386-481f-9d34-f3d496eb1854',
+      gameBuildVersion: '0.2.0-ml2', simulationFingerprint: null, qualitySignals: artifactQuality
+    })], sourceStatus: [{ source: 'CLOUD_POSTGRES', status: 'AVAILABLE_FULL', sessions: 1,
+      payloadIntegrity: artifactQuality.payloadIntegrity }] });
+    check(validateCloudInventoryArtifact(artifactFixture).cloudSessions.length === 1,
+      'enhanced full-cloud artifact is accepted only after canonical hash and field validation');
+    let staleArtifactRejected = false;
+    try { validateCloudInventoryArtifact({ ...artifactFixture, canonicalSha256: '0'.repeat(64) }); }
+    catch (error) { staleArtifactRejected = error.message === 'CLOUD_ARTIFACT_CANONICAL_HASH_MISMATCH'; }
+    check(staleArtifactRejected, 'cloud artifact with a non-canonical hash is rejected');
+
+    let publicCandidates = [];
+    const reconciledFromArtifact = await createInventory({ source: 'all', publicApi: true, cloudArtifact: 'cloud.json' }, {
+      cwd: process.cwd(),
+      inventoryLocalJsonl: () => ({ sessions: [], status: { source: 'LOCAL_JSONL', status: 'NOT_FOUND' } }),
+      inventoryValidationArtifacts: () => ({ sessions: [], status: { source: 'VALIDATION_ARTIFACTS', status: 'NOT_FOUND' } }),
+      documentedKnownSessions: () => [],
+      inventoryCloudArtifact: async () => ({ sessions: artifactFixture.canonicalInventory.sessions,
+        status: artifactFixture.canonicalInventory.sourceStatus[0] }),
+      fetchPublicSessionMetadata: async candidates => {
+        publicCandidates = candidates;
+        return { sessions: [], status: { source: 'PUBLIC_SESSION_API', status: 'AVAILABLE_PARTIAL' } };
+      }
+    });
+    check(publicCandidates.includes('ad759118-4386-481f-9d34-f3d496eb1854')
+      && reconciledFromArtifact.canonicalInventory.summary.sessionCount === 1,
+    'public reconciliation runs after cloud discovery and does not duplicate the cloud session');
 
     const assembled = await createInventory({ source: 'all', publicApi: false }, {
       cwd: process.cwd(),

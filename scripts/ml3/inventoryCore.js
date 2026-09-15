@@ -38,6 +38,9 @@ export const KNOWN_SESSIONS = Object.freeze({
   }),
   'd2d44255-6487-4210-9daa-2e19f2df5ff3': Object.freeze({
     group: 'LINEAGE_SMOKE_J_INFRASTRUCTURE', driverTypes: ['PLAYER'], kind: 'AUTOMATIC'
+  }),
+  'a7ccea2d-c83b-4abb-b0db-188d20d4e439': Object.freeze({
+    group: 'QUICK_BENCHMARK_C_VALIDATION', driverTypes: ['PLAYER'], kind: 'AUTOMATIC'
   })
 });
 
