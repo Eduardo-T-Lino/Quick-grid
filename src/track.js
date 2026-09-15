@@ -11,6 +11,7 @@ import { getTrackMaterials } from './trackAppearance.js';
 import { TrackTileCache } from './trackTileCache.js';
 import { drawTrackScenery } from './trackScenery.js';
 import { getStartingGrid, drawGridSlot } from './startingGrid.js';
+import { getBrakingBoards, drawBrakingBoard } from './brakingBoards.js';
 
 // Dicionário de Nomes Oficiais das Curvas F1 por Pista
 const TRACK_SECTORS = {
@@ -526,26 +527,9 @@ function paintTrack(ctx, detailBounds, materials) {
     if (withinRenderBounds(slot, detailBounds)) drawGridSlot(ctx, slot);
   }
 
-  // 9. PLACAS DE METROS DE FRENAGEM (150m, 100m, 50m)
-  for (let i = 0; i < totalPoints; i += 35) {
-    let p = trackPath[i];
-    if (!withinRenderBounds(p, detailBounds)) continue;
-    let nextP = trackPath[(i + 25) % totalPoints];
-    if (nextP.curvature > 0.015) {
-      let signX = p.x + p.normalX * (trackWidth / 2 + 3.2);
-      let signY = p.y + p.normalY * (trackWidth / 2 + 3.2);
-
-      ctx.save();
-      ctx.translate(signX, signY);
-      ctx.rotate(p.angle + Math.PI / 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(-1.8, -0.7, 3.6, 1.4);
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 0.9px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('100m', 0, 0.35);
-      ctx.restore();
-    }
+  // 9. Metric approaches (300 → 50 m), cached per immutable generated centerline.
+  for (const board of getBrakingBoards(trackPath, trackWidth)) {
+    if (withinRenderBounds(board, detailBounds)) drawBrakingBoard(ctx, board);
   }
 
   // 10. NOMES HISTÓRICOS DAS CURVAS DA PISTA

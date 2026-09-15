@@ -102,4 +102,4 @@ try {
     assert.equal(queries.at(-1), 'ROLLBACK'); assert.ok(released);
   });
 } finally { await new Promise(resolve => server.close(resolve)); }
-console.log(`${passed} auth checks passed`);
+console.log(`${passed} PASSOU | 0 FALHOU`);

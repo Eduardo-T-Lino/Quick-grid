@@ -8,10 +8,11 @@ function localAuth() {
     ]);
     const app = express(), store = new MemoryAccountStore();
     app.use(express.json({ limit: '8kb' }));
-    app.use(createAuthRouter({ getStore: () => store, production: false }));
+    const auth = createAuthRouter({ getStore: () => store, production: false });
+    app.use(auth);
     server.middlewares.use('/api/v1/auth', app);
     const { attachOnline } = await import('./server/src/online/socket.js');
-    attachOnline(server.httpServer);
+    attachOnline(server.httpServer, { onlineAccess: auth.onlineAccess });
     server.config.logger.info('Local player accounts enabled (temporary until this preview restarts).');
   }
   return { name: 'quick-grid-local-auth', configureServer: mount, configurePreviewServer: mount };

@@ -1,5 +1,14 @@
 // Optional account UI. Credentials/session tokens are never stored in localStorage.
 let user = null;
+export function getCurrentUser() { return user; }
+export function invalidateAccount() { user = null; window.dispatchEvent(new CustomEvent('quick-grid:auth-changed', { detail: null })); }
+export async function getOnlineTicket() {
+  const response = await fetch('/api/v1/auth/online-ticket', { method: 'POST', credentials: 'same-origin', cache: 'no-store',
+    signal: AbortSignal.timeout(8000), headers: { 'Content-Type': 'application/json', 'X-Quick-Grid-Auth': '1' }, body: '{}' });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || typeof data.ticket !== 'string') throw Error(response.status === 401 ? 'AUTH_REQUIRED' : 'DISCONNECTED');
+  return data.ticket;
+}
 export function getPilotName() { return user?.pilotName || 'Você (P1)'; }
 const messages = {
   AUTH_INVALID_CREDENTIALS: 'Usuário ou senha incorretos.',
@@ -8,7 +17,7 @@ const messages = {
   AUTH_RATE_LIMIT: 'Muitas tentativas. Aguarde 15 minutos antes de tentar novamente.',
   AUTH_BUSY: 'Servidor ocupado. Tente novamente em instantes.',
   AUTH_ORIGIN_DENIED: 'O endereço deste jogo ainda não foi autorizado para login.',
-  AUTH_UNAVAILABLE: 'Login indisponível no momento. Você pode continuar sem conta.'
+  AUTH_UNAVAILABLE: 'Login indisponível no momento. Você pode continuar no offline sem conta.'
 };
 async function request(path, body) {
   const response = await fetch(`/api/v1/auth/${path}`, { method: body ? 'POST' : 'GET',
@@ -44,7 +53,8 @@ export function initAuth() {
     el('auth-greeting').textContent = user ? user.pilotName : '';
     el('auth-username-display').textContent = user ? `@${user.username}` : '';
     el('auth-storage-note').hidden = !data.temporary;
-    el('auth-guest').textContent = user ? 'VOLTAR AO PADDOCK' : 'CORRER SEM CONTA';
+    el('auth-guest').textContent = user ? 'VOLTAR AO PADDOCK' : 'CONTINUAR SEM CONTA · OFFLINE';
+    window.dispatchEvent(new CustomEvent('quick-grid:auth-changed', { detail: user }));
   }
   function setBusy(value) {
     busy = value;

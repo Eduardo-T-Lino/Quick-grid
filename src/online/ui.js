@@ -1,11 +1,11 @@
 import { OnlineClient } from './client.js';
 import { state } from '../game.js';
 import { F1_TRACKS } from '../f1Tracks.js';
-import { getPilotName } from '../auth.js';
-import { validPilot } from './protocol.js';
+import { getCurrentUser, invalidateAccount } from '../auth.js';
+import { showMenuPage } from '../menuPages.js';
 import { createTrackPreview } from '../paddock.js';
 
-const errors = { ROOM_NOT_FOUND: 'Sala não encontrada.', ROOM_FULL: 'A sala já tem 8 pilotos.',
+const errors = { AUTH_REQUIRED: 'Sua sessão expirou. Entre na sua conta para jogar online.', ACCOUNT_IN_ROOM: 'Esta conta já está em uma sala. Volte à aba da corrida ou saia da outra sala.', ROOM_NOT_FOUND: 'Sala não encontrada.', ROOM_FULL: 'A sala já tem 8 pilotos.',
   RACE_IN_PROGRESS: 'Essa sala já começou. Peça ao anfitrião para criar outra após o torneio.',
   VERSION_MISMATCH: 'Versões diferentes do jogo. Todos precisam atualizar a página.',
   NOT_READY: 'São necessários pelo menos dois pilotos conectados e prontos.', HOST_ONLY: 'Somente o anfitrião pode iniciar.',
@@ -16,11 +16,16 @@ const errors = { ROOM_NOT_FOUND: 'Sala não encontrada.', ROOM_FULL: 'A sala já
   ROOM_EXPIRED: 'A sala expirou por inatividade.' };
 
 export function initOnline() {
-  const el = id => document.getElementById(id), dialog = el('online-dialog'), client = new OnlineClient();
+  const el = id => document.getElementById(id), client = new OnlineClient();
   let busy = false, roomReceivedAt = 0, lastPhase = null, ballotKey = '', previewId = null;
   const previewPaths = new Map();
   const message = text => { el('online-status').textContent = text; };
-  const open = () => { state.keys = {}; if (!dialog.open) dialog.showModal(); };
+  const open = () => { showMenuPage('online'); };
+  const returnToRace = () => {
+    if (!state.onlineSession) { showMenuPage('home'); return; }
+    state.keys = {}; state.onlineSession.menuOpen = false;
+    el('menu').style.display = 'none'; el('gameCanvas').focus();
+  };
   const textNode = (tag, text) => { const node = document.createElement(tag); node.textContent = text; return node; };
   function trackSVG(track) {
     if (!previewPaths.has(track.id)) previewPaths.set(track.id, createTrackPreview(track).path);
@@ -51,9 +56,10 @@ export function initOnline() {
   el('online-rounds').addEventListener('input', refreshStages); refreshStages();
   const running = room => ['loading', 'countdown', 'racing'].includes(room?.phase);
   function setBusy(value) {
-    busy = value; el('online-create').disabled = value; el('online-join').disabled = value;
+    busy = value; el('online-create').disabled = value || !getCurrentUser(); el('online-join').disabled = value || !getCurrentUser();
   }
   function render(room) {
+    const phaseChanged = lastPhase !== room.phase;
     const enteringRace = running(room) && !['loading', 'countdown', 'racing'].includes(lastPhase);
     lastPhase = room.phase;
     roomReceivedAt = performance.now(); setBusy(false);
@@ -105,23 +111,35 @@ export function initOnline() {
     el('online-start').textContent = room.phase === 'results' ? 'PRÓXIMA ETAPA → VOTAÇÃO' : room.settings.rounds > 1 ? 'INICIAR TORNEIO → VOTAÇÃO' : 'INICIAR CORRIDA';
     el('online-return').hidden = !running(room);
     el('online-race-note').hidden = !running(room);
-    if (running(room)) { if (state.onlineSession && enteringRace) dialog.close(); }
-    else open();
+    if (running(room)) { if (state.onlineSession && enteringRace) returnToRace(); }
+    else if (phaseChanged) open();
     message(room.phase === 'voting' ? 'Votação aberta. Um voto por piloto; você pode mudar sua escolha.' : running(room)
       ? 'A corrida online não pausa. ESC/R abre este menu; sair abandona sua participação.' : 'Compartilhe o código. O anfitrião inicia quando todos estiverem prontos.');
   }
-  el('online-open').addEventListener('click', () => {
-    if (!client.room) { const name = getPilotName(); el('online-name').value = validPilot(name) ? name : 'Piloto'; }
+  function refreshEntry() {
+    el('online-name').readOnly = true; el('online-name').maxLength = 32;
+    el('online-name').value = getCurrentUser()?.pilotName || '';
+    el('online-account-gate').hidden = Boolean(getCurrentUser());
+    el('online-entry').hidden = Boolean(client.room) || !getCurrentUser();
+    setBusy(busy);
     const track = F1_TRACKS.find(t => t.id === Number(el('trackSelect').value));
     el('online-config-summary').textContent = `${track?.name || ''} · ${el('lapCount').value} voltas · ${el('trackCondition').value === 'wet' ? 'Molhada' : 'Seca'} — configuração do menu`;
-    open();
+  }
+  el('online-open').addEventListener('click', open);
+  el('online-login').addEventListener('click', () => el('account-open').click());
+  window.addEventListener('quick-grid:page', event => { if (event.detail === 'online') refreshEntry(); });
+  window.addEventListener('quick-grid:auth-changed', event => {
+    if (!event.detail && (client.room || busy)) client.leave();
+    refreshEntry();
+    if (!client.room) message(event.detail ? 'Conta conectada. Crie uma sala ou entre com o código dos seus amigos.' : 'Entre na sua conta para participar do online.');
   });
-  el('online-close').addEventListener('click', () => { dialog.close(); document.getElementById('gameCanvas').focus(); });
-  dialog.addEventListener('cancel', () => { state.keys = {}; });
+  el('online-close').textContent = 'VOLTAR'; el('online-close').setAttribute('aria-label', 'Voltar');
+  el('online-close').addEventListener('click', returnToRace);
   el('online-format').addEventListener('change', () => { el('online-rounds-label').hidden = el('online-format').value !== 'tournament'; });
   function connect(type) {
     if (busy) return;
-    const name = el('online-name').value.trim(); if (!validPilot(name)) { message('Nome de piloto: 2–24 letras/números, espaços, ponto, hífen ou _.'); return; }
+    const account = getCurrentUser(); if (!account) { refreshEntry(); message('Entre na sua conta para jogar online.'); return; }
+    const name = account.pilotName;
     const rounds = el('online-format').value === 'tournament' ? Number(el('online-rounds').value) : 1;
     if (type === 'create' && el('online-format').value === 'tournament' && (!Number.isInteger(rounds) || rounds < 2 || rounds > 12)) { message(errors.INVALID_SETTINGS); return; }
     setBusy(true);
@@ -136,16 +154,17 @@ export function initOnline() {
   });
   el('online-ready').addEventListener('click', () => client.send({ type: 'ready', ready: !client.room.players.find(p => p.id === client.id)?.ready }));
   el('online-start').addEventListener('click', () => client.send({ type: 'start' }));
-  el('online-return').addEventListener('click', () => { dialog.close(); el('gameCanvas').focus(); });
+  el('online-return').addEventListener('click', returnToRace);
   el('online-leave').addEventListener('click', () => { client.leave(); message('Você saiu da sala.'); });
   client.addEventListener('room', event => { render(event.detail); el('start-race').disabled = true; });
   client.addEventListener('status', event => message(event.detail));
-  client.addEventListener('error', event => { setBusy(false); message(errors[event.detail] || 'Não foi possível concluir a ação.'); open(); });
+  client.addEventListener('error', event => { setBusy(false); if (event.detail === 'AUTH_REQUIRED') invalidateAccount(); message(errors[event.detail] || 'Não foi possível concluir a ação.'); open(); });
   client.addEventListener('menu', open);
-  client.addEventListener('racing', () => { dialog.close(); el('gameCanvas').focus(); });
+  client.addEventListener('racing', returnToRace);
   client.addEventListener('ping', event => { el('online-ping').textContent = `${event.detail} ms`; });
   client.addEventListener('left', () => { setBusy(false); lastPhase = null; ballotKey = ''; el('online-votes').replaceChildren(); el('online-entry').hidden = false; el('online-room').hidden = true;
-    el('online-race-note').hidden = true; el('start-race').disabled = false; });
+    el('online-race-note').hidden = true; el('start-race').disabled = false; refreshEntry(); });
+  refreshEntry();
   window.addEventListener('quick-grid:menu', () => { if (running(client.room) && !client.transitioning) client.leave(); });
   setInterval(() => {
     const room = client.room;

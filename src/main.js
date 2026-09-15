@@ -8,6 +8,8 @@ import './styles/auth.css';
 import './styles/hud.css';
 import './styles/online.css';
 import './styles/controls.css';
+import './styles/menuPages.css';
+import { initMenuPages } from './menuPages.js';
 import { createKeyboardControls } from './controlBindings.js';
 import { initControlsSettings } from './controlsSettings.js';
 import { initOnline } from './online/ui.js';
@@ -74,7 +76,7 @@ function populateTrackSelect() {
 
 // ========== EVENT LISTENERS ==========
 const keyboardControls = createKeyboardControls(() => state);
-window.addEventListener('keydown', e => keyboardControls.down(e, Boolean(e.target.closest?.('input, select, textarea, [contenteditable="true"]') || document.querySelector('dialog[open]'))));
+window.addEventListener('keydown', e => keyboardControls.down(e, Boolean(state.onlineSession?.menuOpen || e.target.closest?.('input, select, textarea, [contenteditable="true"]') || document.querySelector('dialog[open]'))));
 window.addEventListener('keyup', e => keyboardControls.up(e));
 window.addEventListener('blur', keyboardControls.clear);
 window.addEventListener('quick-grid:menu', keyboardControls.clear);
@@ -96,4 +98,5 @@ initSessionControls();
 initTelemetryConsent();
 initAuth();
 initOnline();
+initMenuPages();
 initControlsSettings(keyboardControls.clear);
