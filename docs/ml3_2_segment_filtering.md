@@ -1,6 +1,6 @@
 # ML3.2 — Segment Filtering & Acceptance Masks
 
-Status: **implementada para payloads raw em memória**. Esta fase materializa decisões determinísticas de qualidade, mas não cria dataset final, não realiza split e não inicia ML3.3.
+Status: **completa, com evidência raw cloud materializada para a referência humana**. Esta fase materializa decisões determinísticas de qualidade, mas não cria dataset final, não realiza split e não inicia ML3.3.
 
 ## Contrato
 
@@ -54,7 +54,7 @@ O modo `ml3:segment:evidence` abre uma única transação PostgreSQL `REPEATABLE
 npm.cmd run ml3:segment:evidence -- `
   --inventory artifacts/ml3_dataset_inventory.json `
   --session ad759118-4386-481f-9d34-f3d496eb1854 `
-  --output artifacts/ml3_ad759_segment_evidence.json
+  --output artifacts/ml3_segment_evidence_ad759.json
 ```
 
 Antes de gravar qualquer saída, o comando valida:
@@ -68,7 +68,33 @@ Antes de gravar qualquer saída, o comando valida:
 
 Qualquer divergência termina com `RAW_EVIDENCE_FREEZE_MISMATCH` ou `RAW_SAMPLE_INVENTORY_MISMATCH` e não cria output. O arquivo derivado contém somente máscaras, reason codes, segmentos, intervalos, métricas, provas de mismatch zero e um SHA-256 reproduzível. Campos raw como `trackState`, `carState`, `driverAction`, `eventState` e `payload_compressed` são recusados antes da serialização. O output em `artifacts/` permanece local e não deve ser commitado.
 
-As métricas reais de `ad759...` só podem substituir o diagnóstico agregado acima após uma execução com `DATABASE_URL` disponível exclusivamente no environment. Ausência de credencial retorna apenas `CLOUD_FULL_INVENTORY_BLOCKED:DATABASE_URL_MISSING`, sem criar artifact e sem inferir samples a partir dos agregados.
+### Resultado cloud real — `ad759118-4386-481f-9d34-f3d496eb1854`
+
+| Métrica | Resultado |
+| --- | ---: |
+| Samples | 1.940 |
+| Accepted | 1.190 |
+| Rejected | 750 |
+| Coverage | 61,340206% |
+| Accepted intervals | 8 |
+| Rejected intervals | 7 |
+| Accepted candidate segments | 798 |
+| Rejected candidate segments | 995 |
+
+As razões primárias exclusivas somam exatamente os 750 samples rejeitados, sem double counting:
+
+| Reason code | Samples |
+| --- | ---: |
+| `EVENT_SPIN` | 13 |
+| `EVENT_WINDOW_OFF_TRACK` | 145 |
+| `EVENT_WINDOW_SPIN` | 315 |
+| `SAMPLE_SURFACE_DISALLOWED` | 192 |
+| `SEGMENT_QUALITY_FAILED:disallowedSurfaceSamples` | 41 |
+| `SEGMENT_QUALITY_FAILED:eventWindowContaminatedSamples` | 44 |
+
+Os 41/41 batches tiveram GZIP, JSON, array, contagem e metadados first/last válidos. `freezeInventoryMismatchCount` e `rawSampleInventoryMismatchCount` são ambos zero. A evidência derivada é reproduzível pelo SHA-256 `1883f86b98ddf8467d332a43fb587cf88e1432ee0a70231f2addb90758bfccde`.
+
+`finalTrainingDataset` permanece `false`: as máscaras aceitas não constituem export final nem promovem automaticamente samples para treino. O artifact derivado permanece local e ignorado pelo Git.
 
 ## Limites
 
