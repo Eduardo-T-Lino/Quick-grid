@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { ONLINE_VERSION } from '../src/online/protocol.js';
 import { mkdir } from 'node:fs/promises';
+import { registerBrowserAccount, protocolAccountTicket } from './browser_account_fixture.js';
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
 const page = await context.newPage(), errors = [];
@@ -49,14 +50,16 @@ try {
   check(await page.evaluate(() => window.controlsTestState.isPaused) && await page.locator('#session-confirm').isHidden(), 'Capturing R inside pause never restarts the race');
   await page.click('#session-resume'); check(await page.evaluate(() => !window.controlsTestState.keys.Space && !window.controlsTestState.keys.KeyW), 'Resume clears held throttle and boost');
   await page.evaluate(() => window.controlsTestBack());
-  // Real same-origin WebSocket server; protocol guest is only the second participant.
+  // Real accounts on both connections; cookies and one-use tickets stay in RAM.
+  await registerBrowserAccount(page, 'Controls Host');
+  const peerTicket = await protocolAccountTicket(browser, page.url(), 'Controls Peer');
   await page.click('#online-open'); await page.locator('[data-online-select="online-auto"] [data-value="manual"]').click(); await page.click('#online-create');
   await page.locator('#online-room').waitFor({ state: 'visible' });
-  await page.evaluate(version => {
+  await page.evaluate(({ version, ticket }) => {
     const ws = new WebSocket(`ws://${location.host}/online`); window.controlsTestPeer = ws;
-    ws.onopen = () => ws.send(JSON.stringify({ type: 'join', version, name: 'Controls Guest', auto: true, code: document.getElementById('online-room-code').textContent }));
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'join', version, ticket, auto: true, code: document.getElementById('online-room-code').textContent }));
     ws.onmessage = event => { const m = JSON.parse(event.data); if (m.type === 'welcome') ws.send(JSON.stringify({ type: 'ready', ready: true })); if (m.type === 'room' && m.room.phase === 'loading') ws.send(JSON.stringify({ type: 'loaded', raceId: m.room.raceId })); };
-  }, ONLINE_VERSION);
+  }, { version: ONLINE_VERSION, ticket: peerTicket });
   await page.waitForFunction(() => document.getElementById('online-players').children.length === 2 && document.getElementById('online-players').lastElementChild.textContent.includes('pronto'));
   await page.click('#online-ready'); await page.click('#online-start'); await page.waitForFunction(() => window.controlsTestState.racePhase === 'racing');
   await page.locator('#gameCanvas').focus(); await page.keyboard.down('i'); await page.keyboard.down('ShiftLeft');

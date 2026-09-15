@@ -1,0 +1,40 @@
+/* Full paddock pages share the shell, not the browser's modal top layer. */
+#menu [role="tabpanel"][hidden] { display:none !important; }
+#menu .home-panel { padding:24px 0 32px; }
+#menu .home-panel .race-hero { flex:none; height:calc(100dvh - 200px); min-height:440px; max-height:850px; }
+#menu .home-panel .hero-photo { background-position:60% 56%; }
+#menu .home-panel .hero-copy { padding:clamp(28px,4vw,66px); }
+#menu .home-panel h1 { font-size:clamp(54px,6.8vw,110px); }
+.home-routes { display:flex; flex-direction:column; margin:8px 0; border-top:1px solid #354050; }
+#menu .home-routes button { display:grid; grid-template-columns:160px 1fr 1fr 28px; align-items:center; gap:20px; width:100%; padding:26px 20px; border:0; border-bottom:1px solid #354050; border-radius:0; background:#171e28; text-align:left; color:#edf1f7; cursor:pointer; }
+#menu .home-routes button:hover { background:#23314a; box-shadow:inset 3px 0 #ec4941; }
+.home-routes span { font:700 10px 'Segoe UI',sans-serif; letter-spacing:1.5px; color:#83a9f0; }
+.home-routes strong { font:700 26px var(--display); }
+.home-routes small { font:12px/1.5 'Segoe UI',sans-serif; color:#a7b6ca; }
+.home-routes b { font-size:25px; color:#ff6258; }
+#menu .race-page { display:block; max-width:920px; margin:0 auto; padding:32px 0; }
+#menu .race-page .race-setup { width:100%; padding:clamp(22px,4vw,44px); }
+#menu .race-page .setup-heading h2 { font-size:42px; }
+#menu .race-page .config-section { gap:22px; margin-top:24px; }
+#menu .online-page { position:static; display:block; width:100%; max-width:none; max-height:none; margin:28px 0; overflow:visible; border:0; border-radius:0; box-shadow:none; }
+#menu .online-page footer { position:static; }
+#menu .online-page .online-header { padding:28px 32px; }
+#menu .online-page #online-close { margin-left:auto; flex:0 0 auto; min-height:38px; padding:8px 12px; font:700 10px/1.3 'Segoe UI',sans-serif; letter-spacing:1px; }
+#menu .online-page button { font-family:'Segoe UI',sans-serif; }
+.online-config-link { margin-bottom:20px; }
+.online-account-gate { padding:clamp(24px,5vw,64px); border-left:3px solid #749ffa; }
+#menu .online-account-gate h3 { font:700 clamp(28px,4vw,46px) var(--display); margin:18px 0; }
+#menu .online-account-gate p { max-width:560px; margin-bottom:24px; line-height:1.8; }
+.online-account-gate button { margin:0 10px 10px 0; }
+#menu .online-page input[readonly] { color:#a9c6ff; background:#182238; border-color:#314665; }
+.paddock-tabs { overflow-x:auto; flex-wrap:nowrap; }
+.paddock-tabs button { white-space:nowrap; flex:none; }
+@media(max-width:700px) {
+  #menu .home-panel .race-hero { height:65dvh; min-height:420px; }
+  #menu .home-routes button { grid-template-columns:1fr 28px; gap:8px; padding:22px; }
+  .home-routes span,.home-routes strong,.home-routes small { grid-column:1; }
+  .home-routes b { grid-column:2; grid-row:1 / 4; }
+  #menu .online-page .online-header { padding:22px 18px; }
+  #menu .paddock-tabs button { padding:18px 12px; font-size:10px; }
+  #menu .race-page .setup-heading h2 { font-size:34px; }
+}

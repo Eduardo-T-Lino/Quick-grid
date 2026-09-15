@@ -1,8 +1,10 @@
 # Online privado e torneios — primeira versão
 
+Atualização atual: [páginas do paddock, placas e online autenticado](paddock_pages.md). As evidências de convidados e métricas antigas nas seções históricas abaixo não descrevem a política atual de acesso.
+
 ## Jogar
 
-1. Abra **JOGAR ONLINE** no cabeçalho. Conta não é obrigatória; informe seu nome de piloto e transmissão.
+1. Abra a página **ONLINE** ou **JOGAR ONLINE** no cabeçalho. **Conta é obrigatória no online**; entre/crie sua conta. O nome de piloto vem da conta, não pode ser substituído na sala. Offline continua livre para convidados.
 2. Escolha pista, voltas (3–80) e clima no menu normal antes de criar a sala.
 3. Crie uma corrida única ou um torneio de **2–12 etapas**. Compartilhe o código de seis caracteres.
 4. Amigos abrem o jogo no **mesmo servidor** e usam **ENTRAR NA SALA**. Até oito pilotos; sem bots online nesta versão.
@@ -14,10 +16,10 @@ ESC/R abre o menu online **sem pausar os demais**. Sair abandona a participaçã
 
 ## Rodar localmente / rede doméstica confiável
 
-- `npm run dev`: jogo + contas temporárias + servidor de salas, na URL local exibida pelo Vite. Duas abas/documentos podem testar convidados separados.
+- `npm run dev`: jogo + contas temporárias + servidor de salas, na URL local exibida pelo Vite. Para testar dois jogadores na mesma máquina, use perfis/contextos separados com contas diferentes; uma conta só pode participar de uma sala por vez.
 - Para amigos na mesma rede: execute `npm run build`, depois `npm run online:lan`. Todos acessam `http://IP-LOCAL-DO-COMPUTADOR:4173/` (não `localhost` no computador do amigo).
 - A máquina que roda o comando precisa ficar ligada; a rede/firewall precisa permitir essa conexão. Esta alteração não abriu portas no firewall nem configurou roteador. Não encaminhe a prévia para a internet pública.
-- Salas, resultados de torneio e convidados ficam em memória e desaparecem quando o processo reinicia. A prévia local não fornece persistência de contas PostgreSQL.
+- Salas e resultados de torneio ficam em memória e desaparecem quando o processo reinicia. A prévia local não fornece persistência de contas PostgreSQL.
 
 ## Arquitetura e limites
 
@@ -26,7 +28,7 @@ ESC/R abre o menu online **sem pausar os demais**. Sair abandona a participaçã
 - Envio de snapshots a até 20 Hz, com cadência compensada e timestamp da simulação; histórico limitado a 32 snapshots, janela visual de 100 ms e extrapolação apenas visual limitada a 80 ms para cobrir atrasos curtos. A câmera e os carros usam a mesma amostra temporal; os valores interpolados nunca voltam para a física. Ainda não há predição local/reconciliação de comandos: a janela visual acrescenta atraso e latência de rede afeta a resposta. Não há homologação WAN nem benchmark de capacidade cloud.
 - Protocolo versionado pelo fingerprint atual da física. Incompatibilidade pede atualizar a página. Não envia nem coleta demonstrações ML das partidas online e não mistura recordes offline com torneios.
 - Até 16 salas / 128 conexões por processo, 16 conexões por endereço de origem de rede; essas cotas são uma proteção básica, não uma garantia de capacidade. Salas em memória exigem instância única; não há Redis, persistência, matchmaking público, chat ou antiabuso distribuído.
-- Mensagens limitadas a 2 KB, rate limit, sequência de inputs, limite de fila de saída, validação de origem, heartbeat e ticket de reconexão aleatório mantido apenas na memória da aba. Nomes de convidado não são identidades autenticadas.
+- Mensagens limitadas a 2 KB, rate limit, sequência de inputs, limite de fila de saída, validação de origem, heartbeat e token de reconexão aleatório mantido apenas na memória da aba. Criar/entrar/reconectar exige ticket autenticado de uso único (30 s), vinculado à origem e obtido pelo cookie HttpOnly em `/api/v1/auth/online-ticket`. O servidor fornece a identidade e vincula a reconexão à mesma conta. Sessões ativas são revalidadas a cada 10 s; logout local abandona imediatamente a sala. Nenhum token é incluído em URL ou localStorage.
 - Integração WebSocket anexada ao listener HTTP do backend existente e ao Vite local. Produção continua exigindo configuração/DB/migrações válidas antes de escutar; nenhuma validação de TLS/segredo foi removida.
 
 ## Internet — ainda não publicado
@@ -51,6 +53,6 @@ Sem ML3, serviços cloud novos ou alterações de login nesta etapa.
 
 - Sala redesenhada com transmissão/formato em botões acessíveis, etapas com +/−, código de convite destacado, grid lateral com pontos, prévia do circuito e cartões de votação com contagem e cronômetro. Caminhos SVG são reaproveitados e votar não recria os cartões nem remove o foco. Lista de pilotos rola em janelas baixas; entrada conferida em 390 × 844 sem overflow horizontal.
 - Causa reproduzida: a interpolação antiga recomeçava um tween fixo de 50 ms a cada pacote, mesmo quando a entrega demorava mais. Na captura inicial, foram 65 quadros de movimento quase nulo entre 285 amostras com velocidade física acima de 0,15 unidade/tick, apesar de 600 quadros renderizados em 10 s.
-- `node scripts/run_online_browser_checks.js` executa a medição, os 17 testes online e os 13 testes offline em Chromium isolado. Usa Playwright como alternativa à ferramenta CLI que perdeu o contexto da aba. Capturas e relatório ficam em `artifacts/online-*`; nenhuma telemetria ML é habilitada.
+- Na captura histórica, `node scripts/run_online_browser_checks.js` executou a medição, 17 testes online e 13 testes offline em Chromium isolado. O runner atual substitui convidados por contas e usa o novo roteiro de páginas, descrito em `paddock_pages.md`. Capturas e relatórios ficam em `artifacts/`; nenhuma telemetria ML é habilitada.
 - Captura final: oito conexões locais, **apenas uma página renderizando**, sete convidados de protocolo, 10 s em Interlagos. 599 quadros, p95 de 16,7 ms, nenhum quadro acima de 50 ms; 0 quadros de movimento quase nulo em 278 amostras elegíveis. p95 do intervalo entre snapshots: 69,1 ms; nenhum quadro precisou extrapolar. A execução intermediária teve p95 de 33,3 ms e também zero paradas visuais; não há promessa de FPS fixo.
 - As capturas inicial/final ocorreram em execuções e ferramentas distintas: são evidência da correção reproduzida, não um benchmark controlado de ganho percentual. Não representam oito navegadores simultâneos, conexão WAN, partida humana completa nem capacidade do Render. Atrasos prolongados ainda congelam a apresentação por segurança e exibem aviso de conexão instável.

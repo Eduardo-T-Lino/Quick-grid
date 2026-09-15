@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { WebSocket } from 'ws';
-import { RoomHub } from '../server/src/online/rooms.js';
+import { RoomHub as ProductionRoomHub } from '../server/src/online/rooms.js';
+import express from 'express';
+import { createAuthRouter } from '../server/src/auth/router.js';
+import { MemoryAccountStore } from '../server/src/auth/accountStore.js';
 import { attachOnline } from '../server/src/online/socket.js';
 import { ONLINE_VERSION, INPUT_KEYS, ONLINE_LIMITS } from '../src/online/protocol.js';
 import { OnlineSimulation } from '../server/src/online/simulation.js';
@@ -9,6 +12,13 @@ import { state } from '../src/game.js';
 import { SnapshotBuffer } from '../src/online/snapshotBuffer.js';
 
 let passed = 0;
+// Explicit trusted identities for isolated room-domain fixtures; real sockets below use HTTP login.
+class RoomHub extends ProductionRoomHub {
+  attach(send, message) {
+    const prior = this.sessions.get(message.token);
+    return super.attach(send, message, { accountId: prior?.accountId || message.name || 'expired', pilotName: prior?.name || message.name || 'Expired' });
+  }
+}
 const test = async (label, fn) => { await fn(); passed++; console.log(`PASS ${label}`); };
 const posePacket = (time, extra = {}) => ({ serverTime: time, phase: 'racing', cars: [{ id: 'car', x: time / (1000 / 60), y: 0, angle: 0, vx: 1, vy: 0, yawRate: 0, ...extra }] });
 await test('timestamped rendering remains continuous with 35–80ms arrival jitter and does not mutate server positions', () => {
@@ -59,7 +69,7 @@ const fixtures = () => {
   return { h, a, b, room: a.room };
 };
 const readyStart = ({ h, a, b }) => { h.command(a, { type: 'ready', ready: true }); h.command(b, { type: 'ready', ready: true }); h.command(a, { type: 'start' }); };
-await test('rooms accept guests, generate private codes, and never expose resume tokens to other players', () => {
+await test('rooms accept authenticated identities, generate private codes, and never expose resume tokens to other players', () => {
   const { h, a, room } = fixtures();
   assert.match(room.code, /^[A-F0-9]{6}$/);
   assert.equal(room.players.length, 2);
@@ -68,7 +78,7 @@ await test('rooms accept guests, generate private codes, and never expose resume
 await test('bad versions, forged names, limits, unknown rooms and non-host starts are rejected', () => {
   const f = fixtures();
   assert.throws(() => f.h.attach(() => {}, { type: 'join', version: 'old' }), /VERSION_MISMATCH/);
-  assert.throws(() => f.h.attach(() => {}, { type: 'join', version: ONLINE_VERSION, name: '<script>', auto: true }), /INVALID_REQUEST/);
+  assert.throws(() => f.h.attach(() => {}, { type: 'join', version: ONLINE_VERSION, name: '<script>', auto: true }), /AUTH_REQUIRED/);
   assert.throws(() => f.h.attach(() => {}, { type: 'join', version: ONLINE_VERSION, name: 'Guest', auto: true, code: 'XXXXXX' }), /INVALID_CODE/);
   assert.throws(() => f.h.command(f.b, { type: 'start' }), /HOST_ONLY/);
   assert.throws(() => f.h.command(f.a, { type: 'start' }), /NOT_READY/);
@@ -173,19 +183,32 @@ await test('idle/abandoned rooms are removed and expired drivers cannot return i
   assert.equal(next.room.sim.context.cars.find(c => c.id === next.b.id).retired, true);
 });
 
-await test('real WebSocket path handles two guests, ready/start/voting and rejects foreign origins', async () => {
-  const server = createServer((req, res) => { res.end('test'); });
-  const online = attachOnline(server); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+await test('real WebSocket requires accounts, handles ready/start/voting and rejects foreign origins', async () => {
+  const app = express(), store = new MemoryAccountStore(), auth = createAuthRouter({ getStore: () => store, production: false });
+  app.use(express.json()); app.use('/api/v1/auth', auth);
+  const server = createServer(app);
+  const online = attachOnline(server, { onlineAccess: auth.onlineAccess }); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`, sockets = [];
   const connect = async () => {
     const ws = new WebSocket(origin.replace('http:', 'ws:') + '/online', { origin }); sockets.push(ws);
     ws.messages = []; ws.on('message', data => ws.messages.push(JSON.parse(data))); await new Promise(resolve => ws.once('open', resolve)); return ws;
   };
   const wait = async (ws, fn) => { const end = Date.now() + 3000; while (!ws.messages.some(fn)) { if (Date.now() > end) throw Error('WS timeout'); await new Promise(r => setTimeout(r, 10)); } return ws.messages.find(fn); };
+  const ticket = async username => {
+    const headers = { origin, 'content-type': 'application/json', 'x-quick-grid-auth': '1' };
+    const response = await fetch(`${origin}/api/v1/auth/register`, { method: 'POST', headers, body: JSON.stringify({ username, pilotName: username, password: '123456' }) });
+    assert.equal(response.status, 201);
+    const cookie = response.headers.get('set-cookie').split(';')[0];
+    const access = await fetch(`${origin}/api/v1/auth/online-ticket`, { method: 'POST', headers: { ...headers, cookie }, body: '{}' });
+    assert.equal(access.status, 200); return (await access.json()).ticket;
+  };
   try {
-    const a = await connect(); a.send(JSON.stringify({ type: 'create', version: ONLINE_VERSION, name: 'Guest A', auto: true, settings: { laps: 3, rounds: 2, weather: 'dry', trackId: 21 } }));
+    const anonymous = await connect(); anonymous.send(JSON.stringify({ type: 'create', version: ONLINE_VERSION }));
+    await wait(anonymous, m => m.code === 'AUTH_REQUIRED'); assert.equal(online.hub.rooms.size, 0);
+    const a = await connect(); a.send(JSON.stringify({ type: 'create', ticket: await ticket('driver_a'), version: ONLINE_VERSION, name: 'Forged Name', auto: true, settings: { laps: 3, rounds: 2, weather: 'dry', trackId: 21 } }));
     const welcome = await wait(a, m => m.type === 'welcome');
-    const b = await connect(); b.send(JSON.stringify({ type: 'join', version: ONLINE_VERSION, name: 'Guest B', auto: true, code: welcome.room.code }));
+    assert.equal(welcome.room.players[0].name, 'driver_a');
+    const b = await connect(); b.send(JSON.stringify({ type: 'join', ticket: await ticket('driver_b'), version: ONLINE_VERSION, name: 'Forged Other', auto: true, code: welcome.room.code }));
     await wait(b, m => m.type === 'welcome');
     for (const ws of [a, b]) ws.send(JSON.stringify({ type: 'ready', ready: true }));
     await wait(a, m => m.room?.players.length === 2 && m.room.players.every(p => p.ready));

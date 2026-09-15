@@ -20,16 +20,19 @@ export class RoomHub {
       results: room.results, complete: room.complete, raceId: room.raceId };
   }
   publish(room) { this.broadcast(room, { type: 'room', room: this.publicRoom(room) }); }
-  attach(send, message) {
+  attach(send, message, identity) {
     if (message.version !== ONLINE_VERSION) fail('VERSION_MISMATCH');
+    if (!identity?.accountId || !validPilot(identity.pilotName)) fail('AUTH_REQUIRED');
     const now = this.clock();
     if (message.type === 'resume') {
       const player = this.sessions.get(message.token);
       if (!player || player.connected || now - player.disconnectedAt > ONLINE_LIMITS.reconnectMs) fail('SESSION_EXPIRED');
+      if (player.accountId !== identity.accountId) fail('AUTH_REQUIRED');
       player.send = send; player.connected = true; player.keys = {}; player.inputAt = now;
       this.welcome(player); this.publish(player.room); return player;
     }
-    if (!['create', 'join'].includes(message.type) || !validPilot(message.name) || typeof message.auto !== 'boolean') fail('INVALID_REQUEST');
+    if (!['create', 'join'].includes(message.type) || typeof message.auto !== 'boolean') fail('INVALID_REQUEST');
+    if ([...this.sessions.values()].some(p => p.accountId === identity.accountId)) fail('ACCOUNT_IN_ROOM');
     let room;
     if (message.type === 'create') {
       if (this.rooms.size >= ONLINE_LIMITS.rooms) fail('SERVER_FULL');
@@ -50,7 +53,7 @@ export class RoomHub {
       if (room.players.length >= ONLINE_LIMITS.players) fail('ROOM_FULL');
     }
     const player = { id: randomBytes(8).toString('hex'), token: randomBytes(32).toString('hex'), room, send,
-      connected: true, name: message.name.trim(), auto: message.auto, ready: false,
+      connected: true, accountId: identity.accountId, name: identity.pilotName.trim(), auto: message.auto, ready: false,
       color: colors.find(color => !room.players.some(p => p.color === color)), points: 0, keys: {}, inputAt: now, sequence: -1 };
     room.players.push(player); room.host ||= player.id; room.touchedAt = now; this.sessions.set(player.token, player);
     this.welcome(player); this.publish(room); return player;

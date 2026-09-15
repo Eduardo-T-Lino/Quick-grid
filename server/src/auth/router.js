@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { config } from '../config.js';
 import { accountStoreProvider } from './accountStore.js';
 import { hashPassword, verifyPassword } from './passwords.js';
+import { createOnlineAccess } from './onlineAccess.js';
 
 const TTL = 7 * 24 * 60 * 60 * 1000;
 const digest = token => createHash('sha256').update(token).digest('hex');
@@ -11,6 +12,7 @@ const publicUser = user => user ? { id: user.id, username: user.username, pilotN
 
 export function createAuthRouter({ getStore = accountStoreProvider(), production = config.isProduction, allowedOrigins = config.CORS_ALLOWED_ORIGINS } = {}) {
   const router = express.Router();
+  router.onlineAccess = createOnlineAccess({ getStore, production });
   const cookieName = production ? '__Host-qg_session' : 'qg_session';
   const cookieOptions = { httpOnly: true, secure: production, sameSite: 'lax', path: '/' };
   const attempts = new Map();
@@ -23,7 +25,7 @@ export function createAuthRouter({ getStore = accountStoreProvider(), production
     const origin = req.get('origin');
     let permitted = allowedOrigins.includes(origin);
     if (!production && origin) {
-      try { const url = new URL(origin); permitted = ['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname); } catch { permitted = false; }
+      try { const url = new URL(origin); permitted = ['http:', 'https:'].includes(url.protocol) && (url.host === req.get('host') || ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)); } catch { permitted = false; }
     }
     if (!permitted || req.get('x-quick-grid-auth') !== '1' || !req.is('application/json')) return res.status(403).json({ error: 'AUTH_ORIGIN_DENIED' });
     next();
@@ -70,6 +72,10 @@ export function createAuthRouter({ getStore = accountStoreProvider(), production
       const user = await store.register({ username: username.toLowerCase(), pilotName: pilotName.trim(), passwordHash }, session);
       res.status(201).json(await issue(req, res, store, user, session, raw));
     } catch (error) { if (error.code === '23505') return res.status(409).json({ error: 'AUTH_USERNAME_UNAVAILABLE' }); throw error; }
+  });
+  router.post('/online-ticket', guard, async (req, res) => {
+    try { res.json({ ticket: await router.onlineAccess.issue(req.headers.cookie, req.get('origin')) }); }
+    catch (error) { if (error.message === 'AUTH_REQUIRED') return res.status(401).json({ error: 'AUTH_REQUIRED' }); throw error; }
   });
   router.post('/login', guard, rateLimit, async (req, res) => {
     const { username, password } = req.body || {};

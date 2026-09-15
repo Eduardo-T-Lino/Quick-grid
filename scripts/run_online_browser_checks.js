@@ -2,21 +2,26 @@
 import { chromium } from 'playwright';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { registerBrowserAccount, protocolAccountTicket } from './browser_account_fixture.js';
 const target = process.argv[2] || 'http://127.0.0.1:5185/';
 if (!['localhost', '127.0.0.1'].includes(new URL(target).hostname)) throw Error('LOCAL_ONLY');
+const scenario = spawnSync(process.execPath, ['scripts/test_paddock_browser.js', target], { stdio: 'inherit', timeout: 90000 });
+if (scenario.status !== 0) throw Error('Authenticated paddock scenario failed');
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1264, height: 625 } });
 const page = await context.newPage(), errors = [], reports = {};
 page.on('pageerror', error => errors.push(error.message));
 await mkdir('artifacts', { recursive: true });
-await page.exposeFunction('__onlineReviewCapture', async () => {
-  await page.locator('iframe').evaluate(el => el.style.opacity = '0');
-  await page.screenshot({ path: 'artifacts/online-redesign-vote.png' });
-  await page.locator('iframe').evaluate(el => el.style.opacity = '1');
-});
 try {
-  for (const file of ['benchmark_online.browser.js', 'test_online.browser.js', 'test_boost.browser.js']) {
+  for (const file of ['benchmark_online.browser.js', 'test_boost.browser.js']) {
     await page.goto(target); await page.waitForFunction(() => Boolean(window.startGame));
+    if (file === 'benchmark_online.browser.js') {
+      await registerBrowserAccount(page, 'Frame Test');
+      const tickets = [];
+      for (let i = 0; i < 7; i++) tickets.push(await protocolAccountTicket(browser, target, `Load Driver ${i}`));
+      await page.evaluate(values => { window.__benchmarkTickets = values; }, tickets);
+    }
     reports[file] = await page.evaluate(await readFile(path.join('scripts', file), 'utf8'));
     console.log(JSON.stringify({ script: file, result: reports[file] }));
   }

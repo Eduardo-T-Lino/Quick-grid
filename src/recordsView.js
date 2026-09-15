@@ -1,4 +1,5 @@
 import { trackDisplayName } from './trackPicker.js';
+import { showMenuPage } from './menuPages.js';
 
 export function readLocalRecords(storage, tracks) {
   const records = new Map();
@@ -26,7 +27,6 @@ export function formatRecordTime(seconds) {
 
 export function initRecordsView(tracks) {
   const byId = id => document.getElementById(id);
-  const tabs = [byId('tab-race'), byId('tab-records')];
   function refresh() {
     let result;
     try { result = readLocalRecords(localStorage, tracks); } catch { result = { records: [], unavailable: true }; }
@@ -53,24 +53,9 @@ export function initRecordsView(tracks) {
     byId('records-empty-description').textContent = unavailable ? 'O navegador bloqueou o acesso aos dados locais.' : records.length ? 'Tente buscar outro circuito ou cidade.' : 'Complete uma volta para marcar seu lugar aqui. Seus melhores tempos ficam salvos neste navegador.';
     byId('records-result').textContent = `${filtered.length} ${filtered.length === 1 ? 'registro' : 'registros'}`;
   }
-  function activate(index, focus = false) {
-    tabs.forEach((tab, i) => {
-      tab.setAttribute('aria-selected', String(i === index)); tab.tabIndex = i === index ? 0 : -1;
-      byId(tab.getAttribute('aria-controls')).hidden = i !== index;
-    });
-    if (index === 1) refresh();
-    if (focus) tabs[index].focus();
-  }
-  tabs.forEach((tab, index) => {
-    tab.addEventListener('click', () => activate(index));
-    tab.addEventListener('keydown', event => {
-      if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-        event.preventDefault(); activate(event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index, true);
-      }
-    });
-  });
+  window.addEventListener('quick-grid:page', event => { if (event.detail === 'records') refresh(); });
   byId('records-search').addEventListener('input', refresh);
-  byId('records-race').addEventListener('click', () => activate(0, true));
+  byId('records-race').addEventListener('click', () => showMenuPage('race', { focus: true }));
   window.addEventListener('storage', () => { if (!byId('records-panel').hidden) refresh(); });
   window.addEventListener('quick-grid:records-cleared', refresh);
   window.addEventListener('quick-grid:menu', () => { if (!byId('records-panel').hidden) refresh(); });
