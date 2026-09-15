@@ -223,20 +223,20 @@ async function main() {
       async connect() {
         return {
           query: async query => {
-            if (query === CLOUD_QUERIES.sessions) return { rows: [{
+            if (query === CLOUD_QUERIES.sessions || query === CLOUD_QUERIES.sessionById) return { rows: [{
               id: cloudSessionId, schema_version: 2, track_id: 21, sample_rate_hz: '10',
               game_build_version: '0.3.0-ml2', track_geometry_version: '1.5.0-centripetal',
               physics_version: '1.5.0-gt3', feature_manifest_version: '2.1.0',
               scope: 'PLAYER_ONLY', status: 'COMPLETED', received_samples: 2,
               received_batches: 1, completed_laps: 0, client_info: {}
             }] };
-            if (query === CLOUD_QUERIES.batches) return { rows: [{
+            if (query === CLOUD_QUERIES.batches || query === CLOUD_QUERIES.batchesBySession) return { rows: [{
               session_id: cloudSessionId, batch_sequence: 0, sample_count: 2,
               first_sample_index: 0, last_sample_index: 1,
               first_timestamp: '1000.000', last_timestamp: '1100.000',
               payload_compressed: gzipSync(JSON.stringify(cloudSamples))
             }] };
-            if (query === CLOUD_QUERIES.laps) return { rows: [] };
+            if (query === CLOUD_QUERIES.laps || query === CLOUD_QUERIES.lapsBySession) return { rows: [] };
             return { rows: [] };
           },
           release() {}
@@ -252,6 +252,43 @@ async function main() {
       && cloudMeasured.sessions[0].localCollectionSessionId === 'fixture'
       && cloudMeasured.sessions[0].qualitySignals.batchIntegrity.sequenceGaps === 0,
     'cloud inventory validates GZIP, JSON, counts, boundaries and local lineage identity');
+    check(!('samplesBySession' in cloudMeasured),
+      'cloud inventory does not retain decoded raw samples unless explicitly requested');
+
+    const scopedCalls = [];
+    class ScopedPool extends FakePool {
+      async connect() {
+        const client = await super.connect();
+        const query = client.query;
+        client.query = async (sql, params) => {
+          scopedCalls.push({ sql, params });
+          return query(sql, params);
+        };
+        return client;
+      }
+    }
+    const cloudWithRaw = await inventoryCloud({
+      databaseUrl: 'redacted', sessionId: cloudSessionId,
+      Pool: ScopedPool, materializeRawSamples: true
+    });
+    check(cloudWithRaw.samplesBySession instanceof Map
+      && cloudWithRaw.samplesBySession.get(cloudSessionId)?.length === 2
+      && cloudWithRaw.status.rawSamplesInMemory === true,
+    'explicit ML3.2-B mode exposes authoritative decoded samples only through an in-memory map');
+    check(scopedCalls[0].sql === 'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY'
+      && scopedCalls.at(-1).sql === 'ROLLBACK'
+      && scopedCalls.some(call => call.sql === CLOUD_QUERIES.sessionById
+        && call.params?.[0] === cloudSessionId)
+      && scopedCalls.some(call => call.sql === CLOUD_QUERIES.batchesBySession
+        && call.params?.[0] === cloudSessionId)
+      && scopedCalls.some(call => call.sql === CLOUD_QUERIES.lapsBySession
+        && call.params?.[0] === cloudSessionId),
+    'targeted raw evidence uses UUID-bound queries inside one rolled-back read-only transaction');
+
+    let invalidUuidRejected = false;
+    try { await inventoryCloud({ databaseUrl: 'redacted', sessionId: 'not-a-uuid', Pool: FakePool }); }
+    catch (error) { invalidUuidRejected = error.message === 'SESSION_ID_INVALID'; }
+    check(invalidUuidRejected, 'targeted raw evidence rejects a malformed UUID before opening PostgreSQL');
 
     class CountMismatchPool extends FakePool {
       async connect() {

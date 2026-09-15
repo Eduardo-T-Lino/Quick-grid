@@ -8,6 +8,12 @@ import {
   SAMPLE_MASK,
   summarizeInventorySessionWithoutRawSamples
 } from './ml3/segmentFilter.js';
+import {
+  assertNoRawPayloadFields,
+  buildRawEvidenceArtifact,
+  ML3_RAW_EVIDENCE_VERSION,
+  reconcileCloudEvidence
+} from './ml3/rawEvidenceMaterializer.js';
 import { QUALITY_POLICY } from './ml3/qualityPolicy.js';
 import {
   SIMULATION_FINGERPRINT_SHA256,
@@ -267,5 +273,71 @@ check(summarizedRejection.accepted === 0 && summarizedRejection.rejected === 194
   'an unflagged aggregate without raw sample evidence cannot materialize or accept masks');
 check(SAMPLE_MASK.ACCEPTED !== SAMPLE_MASK.REJECTED,
   'mask vocabulary keeps accepted and rejected states explicit');
+
+const frozenEvidenceSession = withLapEvidence(session(120), cleanSamples);
+const cloudEvidenceSession = {
+  ...frozenEvidenceSession,
+  rawPayloadAvailable: true,
+  payloadCorrupt: false
+};
+const cloudEvidenceStatus = {
+  status: 'AVAILABLE_FULL', sessions: 1, batches: 1, samples: 120, rawSamplesInMemory: true,
+  payloadIntegrity: {
+    gzipValid: 1, gzipInvalid: 0, jsonValid: 1, jsonInvalid: 0,
+    arrayValid: 1, arrayInvalid: 0, countMatch: 1, countMismatch: 0,
+    firstLastMetadataMatch: 1, firstLastMetadataMismatch: 0
+  }
+};
+const rawReconciliation = reconcileCloudEvidence({
+  frozenSession: frozenEvidenceSession,
+  cloudSession: cloudEvidenceSession,
+  cloudStatus: cloudEvidenceStatus,
+  samples: cleanSamples
+});
+check(rawReconciliation.mismatchCount === 0,
+  'raw UUID metadata, counts and payload integrity reconcile exactly with the frozen session');
+
+const filterEnvelope = {
+  filterVersion: ML3_SEGMENT_FILTER_VERSION,
+  filterSha256: 'filter-sha-fixture',
+  qualityPolicyVersion: cleanResult.qualityPolicyVersion,
+  sourceInventoryCanonicalSha256: QUALITY_POLICY.acceptedInventoryCanonicalSha256,
+  sessions: [cleanResult],
+  byLineage: { '0.2.0-ml2': { sessions: 1, totalSamples: 120, accepted: 120, rejected: 0, coveragePercent: 100 } }
+};
+const derivedEvidence = buildRawEvidenceArtifact({
+  filterResult: filterEnvelope,
+  reconciliation: rawReconciliation,
+  cloudStatus: cloudEvidenceStatus,
+  sessionId: 'server-session-02'
+});
+const repeatedEvidence = buildRawEvidenceArtifact({
+  filterResult: filterEnvelope,
+  reconciliation: rawReconciliation,
+  cloudStatus: cloudEvidenceStatus,
+  sessionId: 'server-session-02'
+});
+check(derivedEvidence.evidenceVersion === ML3_RAW_EVIDENCE_VERSION
+  && derivedEvidence.summary.accepted === 120
+  && derivedEvidence.databaseRead.rawSampleInventoryMismatchCount === 0,
+  'derived evidence contains materialized masks, metrics and explicit zero mismatch proof');
+check(derivedEvidence.evidenceSha256 === repeatedEvidence.evidenceSha256,
+  'identical raw evidence produces a reproducible SHA-256 fingerprint');
+check(assertNoRawPayloadFields(derivedEvidence)
+  && !JSON.stringify(derivedEvidence).includes('driverAction'),
+  'derived evidence persists no raw telemetry payload fields');
+
+const mismatchedEvidence = reconcileCloudEvidence({
+  frozenSession: frozenEvidenceSession,
+  cloudSession: { ...cloudEvidenceSession, sampleCount: 119 },
+  cloudStatus: cloudEvidenceStatus,
+  samples: cleanSamples
+});
+check(mismatchedEvidence.mismatchCount === 1
+  && mismatchedEvidence.mismatchCodes.includes('FREEZE_MISMATCH:sampleCount'),
+  'freeze reconciliation fails closed when cloud metadata diverges');
+assert.throws(() => assertNoRawPayloadFields({ driverAction: { throttle: 1 } }),
+  /RAW_PAYLOAD_FIELD_FORBIDDEN/);
+check(true, 'raw sample payload fields cannot be serialized as ML3.2-B evidence');
 
 console.log(`ML3_SEGMENT_FILTER_CHECKS: ${passed} total, ${passed} passed, 0 failed`);

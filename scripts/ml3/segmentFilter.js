@@ -16,6 +16,7 @@ import { validateTelemetrySample } from '../../src/ml/telemetry/telemetrySchema.
 import { analyzeSamples } from './inventoryCore.js';
 
 export const ML3_SEGMENT_FILTER_VERSION = 'ML3.2-1';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const SAMPLE_MASK = Object.freeze({
   ACCEPTED: 'ACCEPTED',
@@ -136,7 +137,7 @@ function rawSampleEvidence(row, lineageStratum) {
   };
 }
 
-function rawInventoryMismatches(session, samples) {
+export function rawInventoryMismatches(session, samples) {
   const recorded = session.qualitySignals;
   if (!recorded) return [];
   const observed = analyzeSamples(samples, { sampleRateHz: session.sampleRateHz });
@@ -358,6 +359,8 @@ export function filterSessionSamples({ session = {}, samples = [] } = {}) {
       qualityPolicyVersion: ML3_QUALITY_POLICY_VERSION,
       lineageEvaluation,
       sessionEvaluation,
+      rawSampleInventoryMismatchCount: inventoryMismatches.length,
+      rawInventoryMismatches: inventoryMismatches,
       finalTrainingDataset: false,
       ...finalizeRows(rows, acceptedRows, acceptedSegments, rejectedCandidateSegments)
     };
@@ -369,6 +372,8 @@ export function filterSessionSamples({ session = {}, samples = [] } = {}) {
       qualityPolicyVersion: ML3_QUALITY_POLICY_VERSION,
       lineageEvaluation,
       sessionEvaluation,
+      rawSampleInventoryMismatchCount: inventoryMismatches.length,
+      rawInventoryMismatches: inventoryMismatches,
       finalTrainingDataset: false,
       ...finalizeRows(rows, acceptedRows, acceptedSegments, rejectedCandidateSegments)
     };
@@ -380,6 +385,7 @@ export function filterSessionSamples({ session = {}, samples = [] } = {}) {
       qualityPolicyVersion: ML3_QUALITY_POLICY_VERSION,
       lineageEvaluation,
       sessionEvaluation,
+      rawSampleInventoryMismatchCount: inventoryMismatches.length,
       rawInventoryMismatches: inventoryMismatches,
       finalTrainingDataset: false,
       ...finalizeRows(rows, acceptedRows, acceptedSegments, rejectedCandidateSegments)
@@ -476,6 +482,8 @@ export function filterSessionSamples({ session = {}, samples = [] } = {}) {
     qualityPolicyVersion: ML3_QUALITY_POLICY_VERSION,
     lineageEvaluation,
     sessionEvaluation,
+    rawSampleInventoryMismatchCount: inventoryMismatches.length,
+    rawInventoryMismatches: inventoryMismatches,
     lapEvaluations,
     finalTrainingDataset: false,
     ...finalizeRows(rows, acceptedRows, acceptedSegments, rejectedCandidateSegments)
@@ -506,17 +514,23 @@ export function summarizeInventorySessionWithoutRawSamples(session) {
   };
 }
 
-export function filterInventoryArtifact(artifact, { sessionId = null, samplesBySession = {} } = {}) {
+export function selectFrozenInventorySessions(artifact, { sessionId = null } = {}) {
   const inventory = artifact?.canonicalInventory;
   if (!inventory || !Array.isArray(inventory.sessions)) throw new Error('CANONICAL_INVENTORY_REQUIRED');
   const computedHash = createHash('sha256').update(stableSerialize(inventory)).digest('hex');
   if (artifact.canonicalSha256 !== computedHash) throw new Error('INVENTORY_CANONICAL_HASH_INVALID');
   if (computedHash !== QUALITY_POLICY.acceptedInventoryCanonicalSha256)
     throw new Error('INVENTORY_NOT_ACCEPTED_BY_ML3_1');
+  if (sessionId !== null && !UUID.test(sessionId)) throw new Error('SESSION_ID_INVALID');
   const selected = inventory.sessions
     .filter(session => sessionId === null || session.sessionId === sessionId)
     .sort((a, b) => String(a.sessionId).localeCompare(String(b.sessionId)));
   if (sessionId !== null && !selected.length) throw new Error('SESSION_NOT_FOUND');
+  return { computedHash, selected };
+}
+
+export function filterInventoryArtifact(artifact, { sessionId = null, samplesBySession = {} } = {}) {
+  const { computedHash, selected } = selectFrozenInventorySessions(artifact, { sessionId });
   const rawFor = id => samplesBySession instanceof Map ? samplesBySession.get(id) : samplesBySession?.[id];
   const sessions = selected.map(session => {
     const samples = rawFor(session.sessionId);
