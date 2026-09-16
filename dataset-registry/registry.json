@@ -1,0 +1,12 @@
+{
+  "registryFormatVersion": 1,
+  "generations": [
+    {
+      "generationId": "runtime-0.6.3-ml2-schema3-g1",
+      "generationVersion": "1.0.0",
+      "status": "CONTRACT_FROZEN_NO_DATA",
+      "manifestPath": "runtime-0.6.3-ml2-schema3-g1/manifest.json",
+      "manifestSha256": "8e5d3e1f76539770dc6cf74a1eb5274d288d83e1a64094d5a7fca93c277f374e"
+    }
+  ]
+}

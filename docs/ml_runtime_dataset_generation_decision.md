@@ -1,8 +1,8 @@
 # ML runtime dataset generation decision
 
-Status: **architecture decision recorded; implementation and collection not started**.
+Status: **architecture decision implemented by the frozen ML3.5 contract; collection not started**.
 
-Next phase: **ML3.5 — Runtime Dataset Contract and Durable Registry**.
+Implemented phase: **ML3.5 — Runtime Dataset Contract and Durable Registry**. See [ml3_5_runtime_dataset_contract.md](./ml3_5_runtime_dataset_contract.md).
 
 ## Context and lineage isolation
 
@@ -27,19 +27,19 @@ A new dataset version must contain exactly one fully specified lineage/fingerpri
 
 ## Schema decision
 
-Choose **strategy A: define a new telemetry schema and feature contract before the next collection**.
+Selected **strategy A: define a new telemetry schema and feature contract before the next collection**.
 
 The current physics has boost and drift/coast behavior, while Schema V2 and feature manifest `2.1.0` expose only `steering`, `throttle` and `brake` action targets. They do not encode boost intent/effective activation or the causal boost state (for example charge, active/delay/cooldown and carry/coast state). A full current-runtime driving policy therefore cannot learn or reproduce the new control from the historical target contract without hidden state or label loss.
 
-The formal recommendation is a new **Schema V3** with a newly versioned feature/action manifest. The exact manifest version and fields are to be frozen by ML3.5; no current source contract is changed by this decision document.
+ML3.5 freezes **Schema V3**, feature/action manifest `3.0.0` and the field-level contract in [ml3_5_runtime_dataset_contract.md](./ml3_5_runtime_dataset_contract.md). The active V2 collector and historical readers are not mutated by this decision.
 
-ML3.5 should version and freeze a new schema/feature manifest before collecting data. At minimum it must:
+ML3.5 versions and freezes the new schema/feature manifest before collecting data. The contract:
 
-- represent every controllable action, including requested and effective boost semantics;
-- include the causal vehicle/control state needed to interpret those actions;
-- define ranges, units, capture timing and validation for each new field;
-- mint a new simulation fingerprint and dataset generation identifier;
-- preserve Schema V2 as an immutable historical reader, not mutate it in place.
+- represents every controllable action, separating boost request from effective state;
+- includes the causal vehicle/control state needed to interpret those actions;
+- defines ranges, units, capture timing and validation for each field;
+- mints a new simulation fingerprint and dataset generation identifier;
+- preserves Schema V2 as an immutable historical reader rather than mutating it in place.
 
 Strategy B, a restricted V2 subset, is permitted only for an explicitly boost-disabled experiment after a versioned proof that all omitted controls and states are causally irrelevant. It is not sufficient by default and must not be used for a full current-runtime policy.
 
@@ -68,7 +68,7 @@ Storage policy:
 - every promoted dataset has at least one durable data copy plus its independent Git-versioned manifest; recovery is verified from a clean machine before promotion;
 - local ignored `artifacts/` is only a cache or staging area and is reconstructible from the registry.
 
-This decision does not select or provision a paid service. ML3.5 may use an approved existing repository release, organization object store or other durable backend, provided access control, retention, immutability and checksum verification satisfy the manifest contract.
+This decision does not select or provision a paid service. A later collection phase may use an approved existing repository release, organization object store or other durable backend, provided access control, retention, immutability and checksum verification satisfy the manifest contract.
 
 ## Promotion gates for the new generation
 
@@ -82,4 +82,4 @@ Before any training or split materialization:
 6. upload the immutable large artifact, version its manifest, and prove clean-machine recovery;
 7. only then run deterministic group-aware splitting and publish its manifest.
 
-No collection, dataset materialization, training or ML4 work is started by this document.
+ML3.5 starts no collection, dataset materialization, training or ML4 work. The next recommended phase is **ML3.6 — V3 Telemetry Capture and Collection Readiness**.

@@ -1,0 +1,94 @@
+{
+  "manifestFormatVersion": 1,
+  "generationId": "runtime-0.6.3-ml2-schema3-g1",
+  "generationVersion": "1.0.0",
+  "status": "CONTRACT_FROZEN_NO_DATA",
+  "runtimeDatasetContractVersion": "ML3.5-1",
+  "schemaVersion": 3,
+  "featureActionManifestVersion": "3.0.0",
+  "runtimeLineage": {
+    "gameBuildVersion": "0.6.3-ml2",
+    "physicsVersion": "1.8.3-gt3-drift-coast",
+    "trackGeometryVersion": "1.5.0-centripetal",
+    "sourceTelemetrySchemaVersion": 2,
+    "sourceFeatureManifestVersion": "2.1.0"
+  },
+  "sourceRuntimeFingerprintSha256": "53193ebb1921ecd3f56638054d0acf8fa31d1d7c7647f0e85349a32b96319173",
+  "simulationFingerprintSha256": "7745d5d3641ca5f63ac3a38eed0af4e86c5509ea5f6964271759e3652ca94040",
+  "trackScope": {
+    "mode": "ALL_RUNTIME_TRACKS",
+    "trackIds": []
+  },
+  "driverScope": {
+    "driverTypes": ["PLAYER"],
+    "transmissionModes": ["AUTO", "MANUAL"]
+  },
+  "sampleRateHz": 10,
+  "canonicalObservationOrder": [
+    "carState.speed",
+    "carState.forwardVelocity",
+    "carState.lateralVelocity",
+    "carState.yawRate",
+    "carState.slipAngle",
+    "carState.steeringAngle",
+    "carState.crossTrackError",
+    "carState.headingError",
+    "trackState.distanceToLeftEdge",
+    "trackState.distanceToRightEdge",
+    "trackState.currentCurvature",
+    "trackState.futureCurvature5m",
+    "trackState.futureCurvature10m",
+    "trackState.futureCurvature20m",
+    "trackState.trackProgress",
+    "trackState.surface",
+    "trackState.slope",
+    "powertrainState.gear",
+    "powertrainState.rpm",
+    "powertrainState.engineAcceleration",
+    "powertrainState.brakePressure",
+    "powertrainState.automaticTransmission",
+    "boostState.active",
+    "boostState.charge",
+    "boostState.cooldownSeconds",
+    "boostState.needsRelease",
+    "boostState.carry",
+    "dynamicsState.rearSlip",
+    "dynamicsState.tyreTemperatureCelsius",
+    "dynamicsState.tyreWear",
+    "aeroState.wakeIntensity",
+    "aeroState.wakeSpeedAllowanceKmh",
+    "environmentState.trackCondition"
+  ],
+  "canonicalTargetOrder": [
+    "driverAction.steering",
+    "driverAction.throttle",
+    "driverAction.brake",
+    "driverAction.boostRequested",
+    "driverAction.gearShiftRequest"
+  ],
+  "encodings": {
+    "surface": {
+      "version": "surface-encoding-1.0.0",
+      "domain": ["TARMAC", "KERB", "RUNOFF", "GRAVEL"]
+    },
+    "trackCondition": {
+      "version": "track-condition-encoding-1.0.0",
+      "domain": ["dry", "wet"]
+    }
+  },
+  "storagePolicy": {
+    "rawTelemetry": "OUTSIDE_GIT_DURABLE_STORAGE",
+    "largeDatasets": "OUTSIDE_GIT_DURABLE_STORAGE",
+    "manifestsAndHashes": "VERSIONED_IN_GIT",
+    "localArtifacts": "CACHE_ONLY",
+    "databaseSoleCopyAllowed": false,
+    "cleanMachineRecoveryRequired": true
+  },
+  "collectionStatus": "NOT_STARTED",
+  "sessionCount": 0,
+  "rowCount": 0,
+  "promoted": false,
+  "durableStorage": null,
+  "artifacts": [],
+  "manifestSha256": "8e5d3e1f76539770dc6cf74a1eb5274d288d83e1a64094d5a7fca93c277f374e"
+}
