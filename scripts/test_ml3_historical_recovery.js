@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   buildHistoricalFilterEnvelope,
   HISTORICAL_RECOVERY,
+  HISTORICAL_RECOVERY_MODE,
   parseArgs,
   recoverHistoricalDataset,
   reconstructFrozenSession,
@@ -159,6 +160,10 @@ function dependencies(cloud, overrides = {}) {
 }
 
 console.log('ML3 historical dataset recovery CLI tests');
+
+check(HISTORICAL_RECOVERY_MODE === 'LEGACY_OPTIONAL_RECOVERY'
+  && HISTORICAL_RECOVERY.operationalStatus === HISTORICAL_RECOVERY_MODE,
+  'historical recovery CLI is explicitly marked as legacy and optional');
 
 const envelope = buildHistoricalFilterEnvelope(filteredFixture());
 const repeatedEnvelope = buildHistoricalFilterEnvelope(filteredFixture());

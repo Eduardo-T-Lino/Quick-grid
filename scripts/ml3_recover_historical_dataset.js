@@ -16,7 +16,12 @@ import {
   ML3_SEGMENT_FILTER_VERSION
 } from './ml3/segmentFilter.js';
 
+// LEGACY OPTIONAL RECOVERY: this CLI is retained only for historical audit/recovery.
+// It is not a dependency or gate for the current ML data pipeline.
+export const HISTORICAL_RECOVERY_MODE = 'LEGACY_OPTIONAL_RECOVERY';
+
 export const HISTORICAL_RECOVERY = Object.freeze({
+  operationalStatus: HISTORICAL_RECOVERY_MODE,
   sessionId: 'ad759118-4386-481f-9d34-f3d496eb1854',
   localCollectionSessionId: 'sess_ehzykwkmy8_1788522459201',
   sourceInventoryCanonicalSha256: 'ade0e99d5162eeea75dfeea9aa70068b64588d025d33d35b5cf7ea335a3ffe68',

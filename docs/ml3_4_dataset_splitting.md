@@ -1,64 +1,42 @@
 # ML3.4 — Deterministic Dataset Splitting
 
-Status: **tooling implementado e validado; materialização real bloqueada porque o artifact canônico ML3.3 não está disponível localmente**. ML3.4 não está completa.
+`ML3.4_HISTORICAL = ARCHIVED_UNMATERIALIZED`
 
-## Contrato de entrada
+The deterministic split tooling is implemented and covered by local tests. The historical `ad759...` materialization was never completed and must not be represented as an existing split.
 
-O splitter aceita exclusivamente o dataset canônico já validado na ML3.3:
+## Archived historical record
 
-- datasetVersion: `ML3.3-1`;
-- datasetSha256: `646963ddfb664343e195620ad4fe87e2d810e7d6ee2d8beb179fc581e9a58ab0`;
-- sourceEvidenceSha256: `1883f86b98ddf8467d332a43fb587cf88e1432ee0a70231f2addb90758bfccde`;
-- lineageStratum: `0.2.0-ml2`;
-- rows: 1.190.
+The single-session pipeline is retained as `ARCHIVED_HISTORICAL_PIPELINE_SMOKE`, not as a dataset available for current training:
 
-Além de conferir esses valores, o splitter recalcula o SHA canônico, valida o estado do artifact (`canonicalDataset: true`, `finalTrainingDataset: false`, `splitApplied: false`, `shuffled: false`), a ordenação, a unicidade de identidades, a provenance e o lineage de cada row. Runtime `0.6.x` não é aceito.
+- session: `ad759118-4386-481f-9d34-f3d496eb1854`;
+- lineage: `0.2.0-ml2`;
+- ML3.2: 1,940 total, 1,190 accepted and 750 rejected;
+- ML3.2 evidence SHA-256: `1883f86b98ddf8467d332a43fb587cf88e1432ee0a70231f2addb90758bfccde`;
+- ML3.3: 1,190 rows, `finalTrainingDataset: false`, `splitApplied: false`;
+- ML3.3 dataset SHA-256: `646963ddfb664343e195620ad4fe87e2d810e7d6ee2d8beb179fc581e9a58ab0`.
 
-## Grupos temporais reais
+These values are immutable historical audit records. The original ML3.3 artifact was lost after a computer change, a complete local search returned `ARTIFACT_RECOVERY_NOT_FOUND`, and the legacy PostgreSQL source later returned `DATABASE_READ_BLOCKED:CLOUD_QUERY_FAILED`. No artifact was fabricated, no historical hash was changed, and no old evidence or dataset was promoted for training.
 
-O dataset ML3.3 não contém um ID artificial de segmento. Por isso, um grupo é uma sequência máxima de `sampleIndex` consecutivos dentro da mesma combinação real de:
+The historical pipeline remains auditable through the versioned documentation, code, tests and hashes above. Its evaluation limitation remains explicit: `independentSessionGeneralization: false`.
 
-- `provenance.source`;
-- `provenance.collectionKind`;
-- `provenance.localCollectionSessionId`;
-- `identity.sessionId`;
-- `identity.sampleSessionId`;
-- `identity.lapNumber`.
+## Tooling contract
 
-Uma mudança em qualquer campo, volta ou uma lacuna em `sampleIndex` encerra o grupo. O manifest identifica cada grupo por esse composto mais `startSampleIndex` e `endSampleIndex`; nenhum ID ausente do schema é inferido.
+The generic splitter still validates a supplied ML3.3 canonical dataset before use. For the archived input, its immutable contract is:
 
-## Alocação determinística
+- dataset version `ML3.3-1`;
+- dataset SHA-256 `646963ddfb664343e195620ad4fe87e2d810e7d6ee2d8beb179fc581e9a58ab0`;
+- source evidence SHA-256 `1883f86b98ddf8467d332a43fb587cf88e1432ee0a70231f2addb90758bfccde`;
+- lineage `0.2.0-ml2`;
+- 1,190 rows.
 
-Os grupos permanecem na ordem canônica original. O algoritmo `ORDERED_CONTIGUOUS_GROUP_CUTS` versão `1.0.0` avalia dois cortes entre grupos inteiros e escolhe a partição com menor desvio absoluto total dos targets de rows:
+It recalculates the canonical SHA, checks provenance and identities, and rejects incompatible runtime lineage. It never queries PostgreSQL, uses a hidden `DATABASE_URL`, or falls back to session `ad759...`; input and output paths must be explicit.
 
-- train: 70%;
-- validation: 15%;
-- test: 15%.
+Temporal groups are maximal consecutive `sampleIndex` sequences with the same real provenance, session and lap identity. `ORDERED_CONTIGUOUS_GROUP_CUTS` version `1.0.0` assigns complete ordered groups toward 70/15/15 targets without row shuffle. The tests verify preservation of the exact row union plus sample, group and temporal-boundary disjointness.
 
-Empates usam o primeiro corte de train e depois o primeiro corte de validation. Nenhuma row é embaralhada. Com pelo menos três grupos, todos os splits recebem ao menos um grupo.
+Because the canonical historical artifact is unavailable, there are no real train/validation/test counts and no split-manifest SHA to report. The old single-session fallback would only have been `HISTORICAL_SINGLE_SESSION_PIPELINE_SMOKE`, never independent generalization evidence.
 
-O manifest contém o SHA do dataset fonte, lineage, algoritmo/versionamento, contagens de rows e grupos, grupos atribuídos com todas as sample identities, checks de leakage, `splitApplied: true`, `finalTrainingDataset: false` e `splitManifestSha256` calculado sobre sua serialização canônica.
+## Operational boundary
 
-## Limite de avaliação
+Normal future ML work must not depend on the historical `DATABASE_URL`, session `ad759...`, or the lost ignored ML3.2/ML3.3 artifacts. `ml3:recover:historical` remains only as `LEGACY_OPTIONAL_RECOVERY` for audit or best-effort recovery and is not a phase gate.
 
-Existe somente uma sessão humana histórica principal. Portanto um fallback por intervalos dentro dessa sessão é marcado como `HISTORICAL_SINGLE_SESSION_PIPELINE_SMOKE`, com `independentSessionGeneralization: false`. Esse split serve para validar o pipeline e smoke tests históricos; ele não constitui avaliação independente de generalização entre sessões.
-
-## Execução
-
-```powershell
-npm.cmd run ml3:split -- `
-  --dataset artifacts/ml3_canonical_dataset_ad759.json `
-  --output artifacts/ml3_dataset_split_ad759.json
-```
-
-O caminho de output deve ser diferente do input. O dataset fonte não é modificado. `artifacts/` permanece ignorado e nenhum artifact de split deve ser commitado.
-
-No checkout em que este tooling foi fechado, `artifacts/ml3_canonical_dataset_ad759.json` não estava presente. O processo não sintetizou rows, não inferiu conteúdo a partir dos hashes e não materializou um split: `CANONICAL_DATASET_ARTIFACT_MISSING`.
-
-## Fora de escopo
-
-- normalização, augmentation, balanceamento ou shuffle por row;
-- treinamento ou promoção para dataset final de treino;
-- alteração de ML3.0–ML3.3, raw data, evidence ou dataset canônico;
-- alteração de freeze, schema, features, física ou `acceptedBaseline.js`;
-- ML4.
+The next data generation is defined separately in [ml_runtime_dataset_generation_decision.md](./ml_runtime_dataset_generation_decision.md). This archive does not start data collection, training or ML4.
