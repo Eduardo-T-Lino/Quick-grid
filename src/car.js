@@ -54,6 +54,10 @@ export class Car {
     this.boostCooldown = 0;
     this.boostActive = false;
     this.boostNeedsRelease = false;
+    this.lastBoostRequested = false;
+    this.lastGearShiftRequest = 0;
+    this.pendingManualGearShiftRequest = 0;
+    this.pendingManualShiftSnapshot = null;
     this.tcActive = false;
     this.absActive = false;
     this.tyreTemp = 74;
@@ -91,6 +95,16 @@ export class Car {
 
   shiftUp() { if (this.gear < this.maxGear) this.gear++; }
   shiftDown() { if (this.gear > 1) this.gear--; }
+
+  recordManualGearShiftRequest(direction) {
+    if (this.isBot || this.isAuto || (direction !== -1 && direction !== 1)) return false;
+    if (!this.pendingManualShiftSnapshot) {
+      this.pendingManualShiftSnapshot = { gear: this.gear, rpm: this.rpm };
+    }
+    this.pendingManualGearShiftRequest = Math.max(-1,
+      Math.min(1, this.pendingManualGearShiftRequest + direction));
+    return true;
+  }
 
   // Cálculo de Distância Perpendicular Contínua Ponto-a-Segmento (Elimina Britas Invisíveis)
   getTrackDistanceAndSegment() {
@@ -144,6 +158,15 @@ export class Car {
       this.x += this.vx; this.y += this.vy;
       return;
     }
+
+    // Manual shifts are edge-triggered before this physics tick. Retain their
+    // pre-effect state for the V3 State(t) snapshot without changing gameplay.
+    const manualGearShiftRequest = !this.isBot && !this.isAuto
+      ? this.pendingManualGearShiftRequest : 0;
+    const manualShiftSnapshot = manualGearShiftRequest !== 0
+      ? this.pendingManualShiftSnapshot : null;
+    this.pendingManualGearShiftRequest = 0;
+    this.pendingManualShiftSnapshot = null;
 
     let speed = Math.hypot(this.vx, this.vy); // Metros por frame
     const trackWidth = (selectedTrackData && selectedTrackData.trackWidth) || 24;
@@ -241,6 +264,27 @@ export class Car {
       isRecovering: (this.currentSurface === 'GRAVEL' || this.currentSurface === 'RUNOFF')
     };
 
+    this.mlObservationV3 = {
+      ...this.mlObservation,
+      slope: currentPathPoint.slope || 0,
+      gear: manualShiftSnapshot?.gear ?? this.gear,
+      rpm: manualShiftSnapshot?.rpm ?? this.rpm,
+      engineAcceleration: this.aceleracao_atual,
+      brakePressure: this.brakePressure,
+      automaticTransmission: this.isAuto,
+      boostActive: this.boostActive,
+      boostCharge: this.boostCharge,
+      boostCooldownSeconds: this.boostCooldown,
+      boostNeedsRelease: this.boostNeedsRelease,
+      boostCarry: this.boostCarry,
+      rearSlip: this.rearSlip,
+      tyreTemperatureCelsius: this.tyreTemp,
+      tyreWear: this.tyreWear,
+      wakeIntensity: this.wakeIntensity || 0,
+      wakeSpeedAllowanceKmh: this.wakeSpeedAllowance || 0,
+      trackCondition: state.trackCondition === 'wet' ? 'wet' : 'dry'
+    };
+
     let throttleInput = 0, brakeInput = 0, steerInput = 0;
 
     // === BARREIRA FÍSICA DA PISTA (PÓS CAIXA DE BRITA) ===
@@ -298,6 +342,8 @@ export class Car {
     this.lastThrottleInput = throttleInput;
     this.lastBrakeInput = brakeInput;
     this.lastSteerInput = steerInput;
+    this.lastBoostRequested = !this.isBot && Boolean(keys.Space);
+    this.lastGearShiftRequest = manualGearShiftRequest;
     // Sinalizar que o mlObservation deste tick já tem a action correspondente disponível
     this.mlObservationReady = true;
 
@@ -328,7 +374,7 @@ export class Car {
     const wake = Math.max(0, Math.min(1, this.wakeIntensity || 0));
     let arrasto = (speed * speed) * RESISTENCIA_AR * (1 - wake * WAKE_TUNING.dragLoss);
     const boostSpeedLimit = MAX_INTERNAL_SPEED * BOOST_TUNING.maxSpeedKmh / MAX_SPEED_KMH;
-    updateBoost(this, !this.isBot && Boolean(keys.Space),
+    updateBoost(this, this.lastBoostRequested,
       throttleInput > 0 && brakeInput === 0 && fwdVelPre >= 0 && this.currentSurface === 'TARMAC' && speed < boostSpeedLimit,
       state.racePhase === 'racing' && !state.isPaused && !this.isBot);
     if (this.boostActive) this.boostCarry = true;

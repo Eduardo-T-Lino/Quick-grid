@@ -8,7 +8,7 @@ import { mainCamera } from './camera.js';
 import { drawMinimap } from './minimap.js';
 import { fetchTrackRecords, saveTrackRecords, fetchBotTrainingData, saveBotTrainingData, fetchBotOffsetMemory, saveBotOffsetMemory } from './api.js';
 import { drawBotDebugOverlay } from './ai.js';
-import { mlTelemetry, onlineUploader, telemetryPerformance } from './ml/telemetry/index.js';
+import { mlTelemetry, mlTelemetryV3, onlineUploader, telemetryPerformance } from './ml/telemetry/index.js';
 import { getRenderBounds, withinRenderBounds } from './renderGeometry.js';
 import { raceStart, renderStartLights } from './raceStart.js';
 import { getCarSprite } from './carAppearance.js';
@@ -189,6 +189,7 @@ function checkRaceEnd() {
     if (state.timerInterval) clearInterval(state.timerInterval);
     state.raceFinished = true;
     if (mlTelemetry.enabled) mlTelemetry.stop();
+    if (mlTelemetryV3.enabled) mlTelemetryV3.stop();
     syncBotTrainingEndRace();
     syncRecordToBackend();
     showVictoryScreen();
@@ -199,6 +200,7 @@ function finishRaceByTimeout() {
   if (!state.raceFinished) {
     state.raceFinished = true;
     if (mlTelemetry.enabled) mlTelemetry.stop();
+    if (mlTelemetryV3.enabled) mlTelemetryV3.stop();
     state.cars.forEach(car => {
       if (!car.finished) {
         car.finished = true;
@@ -247,6 +249,7 @@ export function backToMenu() {
   state.keys = {};
   state.finishDeadline = null;
   if (mlTelemetry.enabled) mlTelemetry.stop();
+  if (mlTelemetryV3.enabled) mlTelemetryV3.stop();
   if (state.timerInterval) clearInterval(state.timerInterval);
   document.getElementById('timer-box').style.display = 'none';
   physicsAccumulator = 0;
@@ -272,7 +275,9 @@ export function pauseGame(now = performance.now()) {
 
 export function resumeGame(now = performance.now()) {
   if (!state.isRunning || !state.isPaused) return false;
-  excludePauseTime(state, raceStart, mlTelemetry, Math.max(0, now - state.pausedAt));
+  const elapsed = Math.max(0, now - state.pausedAt);
+  excludePauseTime(state, raceStart, mlTelemetry, elapsed);
+  if (mlTelemetryV3.lastSampleTime > 0) mlTelemetryV3.lastSampleTime += elapsed;
   state.isPaused = false; state.pausedAt = null; state.keys = {};
   lastFrameTime = now;
   telemetryPerformance.lastFrameTimestamp = null;
@@ -430,6 +435,7 @@ function gameLoop(now = performance.now(), presentPaused = false) {
     // lastThrottleInput/lastBrakeInput/lastSteerInput são gravados NESTE update (sem atraso de frame).
     const collectorStart = performance.now();
     mlTelemetry.update(physicsTickTime, state);
+    mlTelemetryV3.update(physicsTickTime, state);
     telemetryPerformance.recordCollector(performance.now() - collectorStart);
   }
   if (racing && !online) updateRanks();

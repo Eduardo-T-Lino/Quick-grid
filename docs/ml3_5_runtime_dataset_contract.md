@@ -105,6 +105,7 @@ Raw telemetry and large datasets remain outside Git in durable access-controlled
 
 - `acceptedBaseline.js`, historical Schema V2 and ML3.0–ML3.4 remain unchanged.
 - `0.2.0-ml2`, `0.3.0-ml2` and V3 runtime data cannot share a generation.
-- No collector currently emits V3. Collection is prohibited until it can atomically capture all V3 state/action fields and pass the contract tests.
+- ML3.6 adds an opt-in, local-only V3 collector that atomically captures all V3 state/action fields and passes the causal readiness harness. See [`ml3_6_v3_telemetry_capture.md`](./ml3_6_v3_telemetry_capture.md).
+- The registry still records zero sessions and zero rows. Remote ingest and real controlled collection remain prohibited in ML3.6.
 
-Recommended next phase: **ML3.6 — V3 Telemetry Capture and Collection Readiness**.
+Recommended next phase: **ML3.7 — Controlled V3 Pilot Collection and Durable Storage Qualification**.

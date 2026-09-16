@@ -63,8 +63,12 @@ export function createKeyboardControls(getState) {
       const car = state.cars[0];
       if (!car || car.isAuto || car.isBot || car.finished || state.racePhase !== 'racing') return;
       if (action === 'shiftUp' || action === 'shiftDown') {
-        if (state.onlineSession) state.onlineSession.queueShift(action === 'shiftUp' ? 1 : -1);
-        else action === 'shiftUp' ? car.shiftUp() : car.shiftDown();
+        const direction = action === 'shiftUp' ? 1 : -1;
+        if (state.onlineSession) state.onlineSession.queueShift(direction);
+        else {
+          car.recordManualGearShiftRequest?.(direction);
+          direction > 0 ? car.shiftUp() : car.shiftDown();
+        }
       }
     },
     up(event) { const state = sync(); held.delete(event.code); apply(state); }
