@@ -1,6 +1,6 @@
 # ML3.3 — Canonical Dataset Builder
 
-Status: **tooling implementado e validado; materialização cloud real pendente de credencial no environment**. A fase constrói um artifact canônico a partir das decisões já congeladas na ML3.2. Ela não recalcula acceptance, não treina modelo, não cria splits e não inicia ML3.4.
+Status: **COMPLETE — tooling implementado, validado e materialização cloud real concluída**. A fase constrói um artifact canônico a partir das decisões já congeladas na ML3.2. Ela não recalcula acceptance, não treina modelo, não cria splits e não inicia ML3.4.
 
 ## Entradas imutáveis
 
@@ -41,7 +41,21 @@ O output é ordenado por sessão, volta e `sampleIndex`, serializado canonicamen
 
 ## Referência `ad759...`
 
-A evidence `1883f86b98ddf8467d332a43fb587cf88e1432ee0a70231f2addb90758bfccde` foi validada pelo builder e declara exatamente 1.190 masks aceitas de 1.940 samples no lineage `0.2.0-ml2`. Portanto a materialização real deve produzir exatamente **1.190 rows** ou falhar fechada.
+A materialização real foi concluída com os seguintes dados:
+
+- session: `ad759118-4386-481f-9d34-f3d496eb1854`;
+- datasetVersion: `ML3.3-1`;
+- lineageStratum: `0.2.0-ml2`;
+- source: 1.940 samples, com 1.190 aceitos e 750 rejeitados;
+- coverage: `61.340206%`;
+- intervals: 8 aceitos e 7 rejeitados;
+- sourceEvidenceSha256: `1883f86b98ddf8467d332a43fb587cf88e1432ee0a70231f2addb90758bfccde`;
+- rows: 1.190;
+- datasetSha256: `646963ddfb664343e195620ad4fe87e2d810e7d6ee2d8beb179fc581e9a58ab0`;
+- finalTrainingDataset: `false`;
+- splitApplied: `false`.
+
+A evidence foi validada pelo builder e as 1.190 masks aceitas produziram exatamente 1.190 rows. O artifact materializado permanece ignorado e não integra o repositório.
 
 O SHA do dataset não é inferido da evidence: ele depende dos vetores extraídos dos raw samples autoritativos. Sem `DATABASE_URL` disponível no processo, a tentativa termina em `CLOUD_FULL_INVENTORY_BLOCKED:DATABASE_URL_MISSING` e não cria artifact.
 
